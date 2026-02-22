@@ -1,0 +1,81 @@
+name: Update Pages Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      institute:
+        description: "Institute code or All"
+        type: string
+        default: "All"
+      force_redownload:
+        description: "Force redownload all schedules"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "15 4 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-pages-data
+  cancel-in-progress: false
+
+jobs:
+  refresh-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Refresh source data
+        env:
+          LPNU_INSTITUTE: ${{ inputs.institute || 'All' }}
+          LPNU_FORCE_REDOWNLOAD: ${{ inputs.force_redownload && '1' || '0' }}
+          LPNU_PARTIAL_FALLBACK_TO_ALL: "1"
+        run: |
+          python fetch_institute_groups.py
+          python batch_schedule_downloader.py
+          python generate_room_status.py --force
+          python scripts/build_static_data.py
+
+      - name: Publish static bundle to gh_pages
+        run: |
+          set -euo pipefail
+
+          git fetch origin gh_pages
+          git branch -f gh_pages origin/gh_pages
+          git worktree add /tmp/gh-pages gh_pages
+
+          rsync -av --delete --exclude CNAME \
+            index.html style.css script.js _headers \
+            /tmp/gh-pages/
+          rsync -av --delete data/ /tmp/gh-pages/data/
+          : > /tmp/gh-pages/.nojekyll
+
+          cd /tmp/gh-pages
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to publish"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(data): refresh static data"
+          git push origin HEAD:gh_pages

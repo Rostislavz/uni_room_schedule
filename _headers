@@ -1,0 +1,11 @@
+/data/index.json
+  Cache-Control: public, max-age=300
+
+/data/floors/*
+  Cache-Control: public, max-age=86400
+
+/script.js
+  Cache-Control: public, max-age=3600
+
+/style.css
+  Cache-Control: public, max-age=3600
