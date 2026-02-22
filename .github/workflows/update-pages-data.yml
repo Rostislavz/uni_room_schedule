@@ -25,6 +25,12 @@ jobs:
   refresh-and-publish:
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    env:
+      LPNU_INSTITUTE: ${{ inputs.institute || 'All' }}
+      LPNU_FORCE_REDOWNLOAD: ${{ inputs.force_redownload && '1' || '0' }}
+      LPNU_PARTIAL_FALLBACK_TO_ALL: "1"
+      GROUPS_FETCH_SUMMARY_PATH: ${{ runner.temp }}/groups_fetch_summary.json
+      BATCH_SUMMARY_PATH: ${{ runner.temp }}/batch_summary.json
 
     steps:
       - name: Checkout main branch
@@ -42,18 +48,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Refresh source data
+      - name: Refresh institutes cache
         env:
-          LPNU_INSTITUTE: ${{ inputs.institute || 'All' }}
-          LPNU_FORCE_REDOWNLOAD: ${{ inputs.force_redownload && '1' || '0' }}
-          LPNU_PARTIAL_FALLBACK_TO_ALL: "1"
-        run: |
-          python fetch_institute_groups.py
-          python batch_schedule_downloader.py
-          python generate_room_status.py --force
-          python scripts/build_static_data.py
+          LPNU_GROUPS_FETCH_SUMMARY_PATH: ${{ env.GROUPS_FETCH_SUMMARY_PATH }}
+        run: python fetch_institute_groups.py
+
+      - name: Download schedules
+        env:
+          LPNU_BATCH_SUMMARY_PATH: ${{ env.BATCH_SUMMARY_PATH }}
+        run: python batch_schedule_downloader.py
+
+      - name: Generate room occupancy
+        run: python generate_room_status.py --force
+
+      - name: Build static data bundle
+        run: python scripts/build_static_data.py
+
+      - name: Add workflow run summary
+        if: always()
+        env:
+          GROUPS_FETCH_SUMMARY_PATH: ${{ env.GROUPS_FETCH_SUMMARY_PATH }}
+          BATCH_SUMMARY_PATH: ${{ env.BATCH_SUMMARY_PATH }}
+          INDEX_SUMMARY_PATH: data/index.json
+        run: python scripts/write_workflow_summary.py
 
       - name: Publish static bundle to gh_pages
+        if: ${{ success() }}
         run: |
           set -euo pipefail
 

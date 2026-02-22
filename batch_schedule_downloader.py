@@ -4,7 +4,7 @@ from __future__ import annotations
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 import json
 import os
-from typing import Iterable, NamedTuple
+from typing import Any, Iterable, NamedTuple
 
 from lpnu_data import get_groups, get_partial_groups, get_timetable, get_partial_timetable, TemporaryFetchError
 from fetch_institute_groups import load_cached
@@ -16,6 +16,7 @@ WORKERS = max(1, int(os.environ.get("LPNU_WORKERS", "6")))
 MAX_TEMP_ERRORS_TOTAL = int(os.environ.get("LPNU_MAX_TEMP_ERRORS_TOTAL", "40"))
 PARTIAL_FALLBACK_TO_ALL = os.environ.get("LPNU_PARTIAL_FALLBACK_TO_ALL", "0") == "1"
 FORCE_REDOWNLOAD = os.environ.get("LPNU_FORCE_REDOWNLOAD", "0") == "1"
+SUMMARY_PATH = os.environ.get("LPNU_BATCH_SUMMARY_PATH", "").strip()
 
 
 def ensure_dir(path: str):
@@ -29,6 +30,7 @@ def save_json(path: str, data):
 
 
 class DownloadResult(NamedTuple):
+    group: str
     level: str
     message: str
     is_temp_error: bool = False
@@ -67,51 +69,76 @@ def discover_partial_groups(semester_half: int, institute: str = "All", semester
 def _download_group_task(group: str, semester: str = DEFAULT_SEMESTER) -> DownloadResult:
     path = os.path.join(OUTPUT_ROOT, semester, group, f"{group}_schedule.json")
     if os.path.exists(path) and not FORCE_REDOWNLOAD:
-        return DownloadResult("skip", f"↩️ {group}: вже існує, пропускаю")
+        return DownloadResult(group, "skip", f"↩️ {group}: вже існує, пропускаю")
 
     try:
         schedule = get_timetable(group, semester=semester)
         save_json(path, schedule)
-        return DownloadResult("ok", f"✅ {group} → {path}")
+        return DownloadResult(group, "ok", f"✅ {group} → {path}")
     except TemporaryFetchError as exc:
         return DownloadResult(
+            group,
             "warn",
             f"⚠️ {group}: тимчасова помилка, пропускаю (можна запустити повторно): {exc}",
             True,
         )
     except Exception as exc:
-        return DownloadResult("err", f"❌ {group}: {exc}")
+        return DownloadResult(group, "err", f"❌ {group}: {exc}")
 
 
 def _download_partial_group_task(group: str, semester_half: int, semester: str = DEFAULT_SEMESTER) -> DownloadResult:
+    label = f"{group} (half {semester_half})"
     path = os.path.join(OUTPUT_ROOT, f"semester_half_{semester_half}", group, f"{group}_schedule.json")
     if os.path.exists(path) and not FORCE_REDOWNLOAD:
-        return DownloadResult("skip", f"↩️ {group} (half {semester_half}): вже існує, пропускаю")
+        return DownloadResult(label, "skip", f"↩️ {group} (half {semester_half}): вже існує, пропускаю")
 
     try:
         schedule = get_partial_timetable(group, semester_half=semester_half, semester=semester)
         save_json(path, schedule)
-        return DownloadResult("ok", f"✅ {group} (half {semester_half}) → {path}")
+        return DownloadResult(label, "ok", f"✅ {group} (half {semester_half}) → {path}")
     except TemporaryFetchError as exc:
         return DownloadResult(
+            label,
             "warn",
             f"⚠️ {group} (half {semester_half}): тимчасова помилка, пропускаю (можна повторити): {exc}",
             True,
         )
     except Exception as exc:
-        return DownloadResult("err", f"❌ {group} (half {semester_half}): {exc}")
+        return DownloadResult(label, "err", f"❌ {group} (half {semester_half}): {exc}")
+
+
+def _empty_stats(processed_groups: int = 0) -> dict[str, Any]:
+    return {
+        "processed_groups": processed_groups,
+        "ok": 0,
+        "skip": 0,
+        "warn": 0,
+        "err": 0,
+        "failed_fetch_groups": [],
+        "failed_update_groups": [],
+    }
+
+
+def _accumulate(stats: dict[str, Any], result: DownloadResult):
+    stats[result.level] = stats.get(result.level, 0) + 1
+    if result.level == "warn":
+        stats["failed_fetch_groups"].append(result.group)
+    if result.level == "err":
+        stats["failed_update_groups"].append(result.group)
 
 
 def _run_parallel(groups: Iterable[str], worker_fn):
     group_list = list(groups)
+    stats = _empty_stats(processed_groups=len(group_list))
     if not group_list:
-        return
+        return stats
 
     workers = min(WORKERS, len(group_list))
     if workers <= 1:
         temp_errors = 0
         for group in group_list:
             result = worker_fn(group)
+            _accumulate(stats, result)
             print(result.message)
             if result.is_temp_error:
                 temp_errors += 1
@@ -123,7 +150,7 @@ def _run_parallel(groups: Iterable[str], worker_fn):
                     break
             else:
                 temp_errors = 0
-        return
+        return stats
 
     temp_errors = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -142,6 +169,7 @@ def _run_parallel(groups: Iterable[str], worker_fn):
             done, pending = wait(pending, return_when=FIRST_COMPLETED)
             for fut in done:
                 result = fut.result()
+                _accumulate(stats, result)
                 print(result.message)
                 if result.is_temp_error:
                     temp_errors += 1
@@ -160,17 +188,38 @@ def _run_parallel(groups: Iterable[str], worker_fn):
                     except StopIteration:
                         continue
                     pending.add(pool.submit(worker_fn, group))
+    return stats
 
 
 def download_groups(groups: Iterable[str], semester: str = DEFAULT_SEMESTER):
-    _run_parallel(groups, lambda group: _download_group_task(group, semester=semester))
+    return _run_parallel(groups, lambda group: _download_group_task(group, semester=semester))
 
 
 def download_partial_groups(groups: Iterable[str], semester_half: int, semester: str = DEFAULT_SEMESTER):
-    _run_parallel(
+    return _run_parallel(
         groups,
         lambda group: _download_partial_group_task(group, semester_half=semester_half, semester=semester),
     )
+
+
+def _compute_total_stats(primary_stats: dict[str, Any], partial_stats: dict[str, Any]) -> dict[str, Any]:
+    stats = _empty_stats()
+    stats["processed_groups"] = primary_stats["processed_groups"]
+    for item in partial_stats.values():
+        stats["processed_groups"] += item["processed_groups"]
+    for level in ("ok", "skip", "warn", "err"):
+        stats[level] = primary_stats[level] + sum(item[level] for item in partial_stats.values())
+    stats["success"] = stats["ok"] + stats["skip"]
+    stats["failed"] = stats["warn"] + stats["err"]
+    stats["failed_fetch_groups"] = (
+        primary_stats["failed_fetch_groups"]
+        + [g for item in partial_stats.values() for g in item["failed_fetch_groups"]]
+    )
+    stats["failed_update_groups"] = (
+        primary_stats["failed_update_groups"]
+        + [g for item in partial_stats.values() for g in item["failed_update_groups"]]
+    )
+    return stats
 
 
 def main():
@@ -194,30 +243,58 @@ def main():
             print(f"⚠️ Автовизначення груп недоступне, використовую groups.txt: {len(groups)}")
         else:
             print("❌ Не вдалося знайти групи. Додай їх у groups.txt або змінну GROUPS=oi-31,oi-32")
+            if SUMMARY_PATH:
+                with open(SUMMARY_PATH, "w", encoding="utf-8") as f:
+                    json.dump(
+                        {
+                            "institute": institute,
+                            "semester": semester,
+                            "groups_discovery_failed": True,
+                            "primary": _empty_stats(),
+                            "partial": {"1": _empty_stats(), "2": _empty_stats()},
+                            "totals": _empty_stats(),
+                        },
+                        f,
+                        ensure_ascii=False,
+                        indent=2,
+                    )
             return
     else:
         print(f"Знайдено груп: {len(groups)}")
 
-    download_groups(groups, semester=semester)
+    primary_stats = download_groups(groups, semester=semester)
+    partial_stats: dict[str, dict[str, Any]] = {"1": _empty_stats(), "2": _empty_stats()}
 
     # partial schedules for numerator/denominator halves
     for half in (1, 2):
         partial_groups = discover_partial_groups(half, institute=institute, semester=semester)
         if partial_groups:
-            download_partial_groups(partial_groups, semester_half=half, semester=semester)
+            partial_stats[str(half)] = download_partial_groups(partial_groups, semester_half=half, semester=semester)
             continue
 
         if PARTIAL_FALLBACK_TO_ALL and groups:
             print(
                 f"⚠️ Для half {half} не знайдено окремий список груп, використовую основний список ({len(groups)})."
             )
-            download_partial_groups(groups, semester_half=half, semester=semester)
+            partial_stats[str(half)] = download_partial_groups(groups, semester_half=half, semester=semester)
             continue
 
         print(
             f"⚠️ Для half {half} не вдалося отримати список груп, пропускаю. "
             "Щоб примусово пробувати всі групи, встанови LPNU_PARTIAL_FALLBACK_TO_ALL=1."
         )
+
+    if SUMMARY_PATH:
+        payload = {
+            "institute": institute,
+            "semester": semester,
+            "groups_discovery_failed": False,
+            "primary": primary_stats,
+            "partial": partial_stats,
+            "totals": _compute_total_stats(primary_stats, partial_stats),
+        }
+        with open(SUMMARY_PATH, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
