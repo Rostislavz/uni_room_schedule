@@ -29,14 +29,17 @@ jobs:
       LPNU_INSTITUTE: ${{ inputs.institute || 'All' }}
       LPNU_FORCE_REDOWNLOAD: ${{ inputs.force_redownload && '1' || '0' }}
       LPNU_PARTIAL_FALLBACK_TO_ALL: "1"
-      GROUPS_FETCH_SUMMARY_PATH: ${{ runner.temp }}/groups_fetch_summary.json
-      BATCH_SUMMARY_PATH: ${{ runner.temp }}/batch_summary.json
+      GROUPS_FETCH_SUMMARY_PATH: .tmp/groups_fetch_summary.json
+      BATCH_SUMMARY_PATH: .tmp/batch_summary.json
 
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Prepare temp directory
+        run: mkdir -p .tmp
 
       - name: Set up Python
         uses: actions/setup-python@v5
