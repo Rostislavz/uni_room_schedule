@@ -23,3 +23,9 @@ python batch_schedule_downloader.py
 python generate_room_status.py --force
 python scripts/build_static_data.py
 ```
+
+## Thanks
+
+Inspired by [lpnu.pp.ua](https://lpnu.pp.ua/)
+
+Please, star the great work of https://github.com/cupoftea4/timetable 
