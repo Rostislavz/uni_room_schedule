@@ -48,8 +48,6 @@ const pairTimes = {
   document.getElementById('week-denominator').addEventListener('click', () => setWeekFilter('denominator'));
 
 document.addEventListener('DOMContentLoaded', () => {
-  const embedded = window.self !== window.top;
-  document.documentElement.classList.toggle('is-embedded', embedded);
   renderStaticSchedule();
   restoreScheduleAccordion();
   setActiveMode('mode1');
