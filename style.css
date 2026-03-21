@@ -33,6 +33,16 @@ body {
   margin: 0 auto 36px;
 }
 
+html.is-embedded body {
+  padding: 8px;
+  background: transparent;
+}
+
+html.is-embedded .page {
+  max-width: none;
+  margin: 0;
+}
+
 .hero {
   display: flex;
   justify-content: space-between;
@@ -438,4 +448,16 @@ table tr:nth-child(even) td { background: transparent; }
   body { padding: 18px; }
   .hero { flex-direction: column; }
   .layout { grid-template-columns: 1fr; }
+}
+
+html.is-embedded .hero {
+  margin-bottom: 12px;
+}
+
+html.is-embedded .card {
+  padding: 14px 14px;
+}
+
+html.is-embedded .card__body {
+  margin-top: 8px;
 }
