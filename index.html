@@ -1,92 +1,113 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="uk">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="app-data-root" content="data">
-  <title>Статус аудиторій</title>
-  <link rel="stylesheet" href="style.css?v=3.0">
-</head>
-<body>
-  <div class="page">
-    <header class="hero">
-      <div class="hero__text">
-        <p class="eyebrow">LPNU Rooms</p>
-        <h1>Статус аудиторій</h1>
-        <p class="lede">Перевіряй вільні аудиторії або дивись календар зайнятості по корпусах. Наприклад: знайди вільні аудиторії в корпусі 1 в понеділок → <strong>Вільні аудиторії</strong>; або перевір розклад аудиторії 201 → <strong>Календар аудиторії</strong>.</p>
-        <div class="pills">
-          <span class="pill pill--status"><span class="dot dot--green"></span>Джерело: student.lpnu.ua</span>
-          <span id="freshness-pill" class="pill pill--status" title="Час останнього оновлення даних">Дані завантажуються…</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="app-data-root" content="data" />
+    <title>Статус аудиторій</title>
+    <link rel="stylesheet" href="style.css?v=3.0" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div class="hero__text">
+          <p class="eyebrow">LPNU Rooms</p>
+          <h1>Статус аудиторій</h1>
+          <p class="lede">
+            Перевіряй вільні аудиторії або дивись календар зайнятості по корпусах. Наприклад: знайди
+            вільні аудиторії в корпусі 1 в понеділок → <strong>Вільні аудиторії</strong>; або
+            перевір розклад аудиторії 201 → <strong>Календар аудиторії</strong>.
+          </p>
+          <div class="pills">
+            <span class="pill pill--status"
+              ><span class="dot dot--green"></span>Джерело: student.lpnu.ua</span
+            >
+            <span
+              id="freshness-pill"
+              class="pill pill--status"
+              title="Час останнього оновлення даних"
+              >Дані завантажуються…</span
+            >
+          </div>
         </div>
-      </div>
-      <div class="hero__controls">
-        <nav class="tabs">
-          <button id="mode1" class="tab active">Вільні аудиторії</button>
-          <button id="mode2" class="tab">Календар аудиторії</button>
-        </nav>
-        <section id="week-selector" class="week-selector">
-          <label>Тип тижня:</label>
-          <div class="chip-group">
-            <button id="week-all" class="chip week-btn active" title="Показати всі пари">Усі</button>
-            <button id="week-numerator" class="chip week-btn" title="Чисельник — непарні тижні">Чисельник</button>
-            <button id="week-denominator" class="chip week-btn" title="Знаменник — парні тижні">Знаменник</button>
+        <div class="hero__controls">
+          <nav class="tabs">
+            <button id="mode1" class="tab active">Вільні аудиторії</button>
+            <button id="mode2" class="tab">Календар аудиторії</button>
+          </nav>
+          <section id="week-selector" class="week-selector">
+            <label>Тип тижня:</label>
+            <div class="chip-group">
+              <button id="week-all" class="chip week-btn active" title="Показати всі пари">
+                Усі
+              </button>
+              <button id="week-numerator" class="chip week-btn" title="Чисельник — непарні тижні">
+                Чисельник
+              </button>
+              <button id="week-denominator" class="chip week-btn" title="Знаменник — парні тижні">
+                Знаменник
+              </button>
+            </div>
+          </section>
+        </div>
+      </header>
+
+      <main class="layout layout-12">
+        <section class="card span-3">
+          <div class="card__header">
+            <h3>Фільтри пошуку</h3>
+            <p>Оберіть корпус, поверх, аудиторію та день.</p>
+          </div>
+          <div id="controls" class="card__body"></div>
+        </section>
+
+        <section class="card span-7">
+          <div class="card__header">
+            <div class="card__header-row">
+              <div>
+                <h3>Доступність аудиторій</h3>
+                <p>Список вільних аудиторій або календар вибраної.</p>
+              </div>
+              <div class="legend">
+                <span class="legend__item"><span class="dot dot--green"></span>Вільно</span>
+                <span class="legend__item"><span class="dot dot--red"></span>Зайнято</span>
+                <span class="legend__item"><span class="dot dot--amber"></span>Частково</span>
+              </div>
+            </div>
+          </div>
+          <div id="output" class="card__body"></div>
+        </section>
+
+        <section class="card schedule-card span-2" id="schedule">
+          <button class="card__header accordion-trigger" aria-expanded="true">
+            <div class="card__header-row">
+              <div class="with-icon">🕒 <span>Розклад пар</span></div>
+              <span class="accordion-caret">▾</span>
+            </div>
+            <p>Швидка пам’ятка часу початку пар.</p>
+          </button>
+          <div class="card__body accordion-body">
+            <table>
+              <thead>
+                <tr>
+                  <th>Пара</th>
+                  <th>Час</th>
+                </tr>
+              </thead>
+              <tbody id="schedule-body">
+                <!-- Розклад буде вставлено тут -->
+              </tbody>
+            </table>
           </div>
         </section>
-      </div>
-    </header>
+      </main>
+    </div>
 
-    <main class="layout layout-12">
-      <section class="card span-3">
-        <div class="card__header">
-          <h3>Фільтри пошуку</h3>
-          <p>Оберіть корпус, поверх, аудиторію та день.</p>
-        </div>
-        <div id="controls" class="card__body"></div>
-      </section>
-
-      <section class="card span-7">
-        <div class="card__header">
-          <div class="card__header-row">
-            <div>
-              <h3>Доступність аудиторій</h3>
-              <p>Список вільних аудиторій або календар вибраної.</p>
-            </div>
-            <div class="legend">
-              <span class="legend__item"><span class="dot dot--green"></span>Вільно</span>
-              <span class="legend__item"><span class="dot dot--red"></span>Зайнято</span>
-              <span class="legend__item"><span class="dot dot--amber"></span>Частково</span>
-            </div>
-          </div>
-        </div>
-        <div id="output" class="card__body"></div>
-      </section>
-
-      <section class="card schedule-card span-2" id="schedule">
-        <button class="card__header accordion-trigger" aria-expanded="true">
-          <div class="card__header-row">
-            <div class="with-icon">🕒 <span>Розклад пар</span></div>
-            <span class="accordion-caret">▾</span>
-          </div>
-          <p>Швидка пам’ятка часу початку пар.</p>
-        </button>
-        <div class="card__body accordion-body">
-          <table>
-            <thead>
-              <tr>
-                <th>Пара</th>
-                <th>Час</th>
-              </tr>
-            </thead>
-            <tbody id="schedule-body">
-              <!-- Розклад буде вставлено тут -->
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <script src="script.js?v=3.0" defer></script>
-  <noscript><p style="text-align:center;padding:2rem;color:#5f6c85">Для роботи застосунку необхідно увімкнути JavaScript.</p></noscript>
-</body>
+    <script src="script.js?v=3.0" defer></script>
+    <noscript
+      ><p style="text-align: center; padding: 2rem; color: #5f6c85">
+        Для роботи застосунку необхідно увімкнути JavaScript.
+      </p></noscript
+    >
+  </body>
 </html>
