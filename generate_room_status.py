@@ -1,4 +1,5 @@
 """Generate per-room occupation files from normalized schedules."""
+
 from __future__ import annotations
 
 import argparse
@@ -63,7 +64,9 @@ def parse_room_info(room_str: str):
     try:
         building = roman_to_int(building_roman)
     except ValueError as exc:
-        logger.warning("Cannot parse building numeral %r in %r: %s", building_roman, room_str, exc)
+        logger.warning(
+            "Cannot parse building numeral %r in %r: %s", building_roman, room_str, exc
+        )
         return None
     floor = room[0]
     return str(building), str(floor), room
@@ -174,7 +177,9 @@ def process_schedule(path: str) -> tuple[int, int]:
             "Тип заняття": entry.get("Тип заняття"),
             "Тип тижня": entry.get("Тип тижня", "постійно"),
         }
-        append_record(os.path.join(OUTPUT_ROOT, building, floor, f"{room}.json"), record)
+        append_record(
+            os.path.join(OUTPUT_ROOT, building, floor, f"{room}.json"), record
+        )
         processed += 1
     return processed, skipped
 
@@ -185,7 +190,9 @@ def main():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
-    parser = argparse.ArgumentParser(description="Generate room occupancy files from schedules.")
+    parser = argparse.ArgumentParser(
+        description="Generate room occupancy files from schedules."
+    )
     parser.add_argument(
         "--force",
         action="store_true",
@@ -214,7 +221,9 @@ def main():
         total_processed += processed
         total_skipped += skipped
         updated_hashes[schedule_path] = current_hash
-        logger.info("Processed %s (%d entries, %d skipped)", schedule_path, processed, skipped)
+        logger.info(
+            "Processed %s (%d entries, %d skipped)", schedule_path, processed, skipped
+        )
 
     save_hashes(updated_hashes)
     logger.info(

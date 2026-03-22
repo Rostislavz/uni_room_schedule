@@ -41,11 +41,16 @@ def natural_sort_key(value: str):
 
 
 def sorted_dirs(path: Path):
-    return sorted((item for item in path.iterdir() if item.is_dir()), key=lambda p: natural_sort_key(p.name))
+    return sorted(
+        (item for item in path.iterdir() if item.is_dir()),
+        key=lambda p: natural_sort_key(p.name),
+    )
 
 
 def sorted_room_files(path: Path):
-    files = [item for item in path.iterdir() if item.is_file() and item.suffix == ".json"]
+    files = [
+        item for item in path.iterdir() if item.is_file() and item.suffix == ".json"
+    ]
     return sorted(files, key=lambda p: natural_sort_key(p.stem))
 
 
@@ -94,7 +99,9 @@ def build() -> None:
                 "floor": floor_dir.name,
                 "rooms": rooms_map,
             }
-            write_json(FLOORS_DIR / building_dir.name / f"{floor_dir.name}.json", floor_payload)
+            write_json(
+                FLOORS_DIR / building_dir.name / f"{floor_dir.name}.json", floor_payload
+            )
 
             floors_payload.append(
                 {

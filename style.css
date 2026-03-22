@@ -28,13 +28,19 @@
   --space-2xl: 36px;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
-  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
-  background: radial-gradient(circle at 10% 20%, rgba(14,165,233,0.09), transparent 35%),
-              radial-gradient(circle at 80% 10%, rgba(37,99,235,0.12), transparent 32%),
-              var(--bg);
+  font-family:
+    'Manrope',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(14, 165, 233, 0.09), transparent 35%),
+    radial-gradient(circle at 80% 10%, rgba(37, 99, 235, 0.12), transparent 32%), var(--bg);
   color: var(--text);
   margin: 0;
   padding: clamp(16px, 2vw, 28px);
@@ -166,8 +172,11 @@ html.is-embedded .page {
   transition: all 0.2s ease;
 }
 
-.chip:hover { border-color: var(--accent); }
-.chip.active, .week-btn.active {
+.chip:hover {
+  border-color: var(--accent);
+}
+.chip.active,
+.week-btn.active {
   background: linear-gradient(120deg, var(--accent), var(--accent-2));
   color: #fff;
   border-color: transparent;
@@ -182,23 +191,49 @@ html.is-embedded .page {
   grid-template-columns: repeat(12, 1fr);
 }
 
-.span-3 { grid-column: span 3; }
-.span-6 { grid-column: span 6; }
-.span-7 { grid-column: span 7; }
-.span-2 { grid-column: span 2; }
+.span-3 {
+  grid-column: span 3;
+}
+.span-6 {
+  grid-column: span 6;
+}
+.span-7 {
+  grid-column: span 7;
+}
+.span-2 {
+  grid-column: span 2;
+}
 
 @media (max-width: 1440px) {
-  .span-3 { grid-column: span 4; }
-  .span-6, .span-7 { grid-column: span 8; }
-  .span-2 { grid-column: span 4; }
+  .span-3 {
+    grid-column: span 4;
+  }
+  .span-6,
+  .span-7 {
+    grid-column: span 8;
+  }
+  .span-2 {
+    grid-column: span 4;
+  }
 }
 @media (max-width: 1200px) {
-  .span-3 { grid-column: span 12; order: 1; }
-  .span-6, .span-7 { grid-column: span 12; order: 2; }
-  #schedule { display: none; }
+  .span-3 {
+    grid-column: span 12;
+    order: 1;
+  }
+  .span-6,
+  .span-7 {
+    grid-column: span 12;
+    order: 2;
+  }
+  #schedule {
+    display: none;
+  }
 }
 @media (max-width: 900px) {
-  .layout-12 { grid-template-columns: repeat(1, 1fr); }
+  .layout-12 {
+    grid-template-columns: repeat(1, 1fr);
+  }
 }
 
 .card__body {
@@ -244,7 +279,9 @@ label {
   color: var(--text);
 }
 
-select, input, form button {
+select,
+input,
+form button {
   padding: 0 12px;
   height: 48px;
   border: 1px solid var(--border);
@@ -265,6 +302,21 @@ form button {
 .field-group {
   display: grid;
   gap: 10px 12px;
+}
+
+.field-group .group-label {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.field-group label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-group select {
+  width: 100%;
 }
 
 .field-group:first-of-type {
@@ -310,7 +362,9 @@ form button {
   box-shadow: none;
 }
 
-#output table, #controls table, .card table {
+#output table,
+#controls table,
+.card table {
   width: 100%;
   border-collapse: collapse;
   background: #fff;
@@ -318,7 +372,8 @@ form button {
   overflow: hidden;
 }
 
-#output, .table-wrap {
+#output,
+.table-wrap {
   overflow: hidden;
 }
 
@@ -352,7 +407,8 @@ table thead th {
   border-bottom: 1px solid var(--border);
 }
 
-table th, table td {
+table th,
+table td {
   padding: 10px 10px;
   border: 1px solid var(--border);
   text-align: center;
@@ -375,7 +431,9 @@ table td:first-child {
 }
 
 /* remove zebra striping to keep status colors dominant */
-table tr:nth-child(even) td { background: transparent; }
+table tr:nth-child(even) td {
+  background: transparent;
+}
 
 .cell-busy {
   background-color: var(--cell-busy-bg);
@@ -397,14 +455,32 @@ table tr:nth-child(even) td { background: transparent; }
   color: white;
 }
 
-.week-badge.numerator { background-color: #f59e0b; }
-.week-badge.denominator { background-color: #0ea5e9; }
+.week-badge.numerator {
+  background-color: #f59e0b;
+}
+.week-badge.denominator {
+  background-color: #0ea5e9;
+}
 
-.schedule-card table { margin-top: 8px; }
+.schedule-card table {
+  margin-top: 8px;
+}
 
-.cell-title { font-weight: 700; font-size: 12.5px; margin-bottom: 2px; }
-.cell-meta { font-size: 11px; color: var(--muted); line-height: 1.25; }
-.cell-title.free { font-size: 14px; text-align: center; margin: 8px 0; }
+.cell-title {
+  font-weight: 700;
+  font-size: 12.5px;
+  margin-bottom: 2px;
+}
+.cell-meta {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.25;
+}
+.cell-title.free {
+  font-size: 14px;
+  text-align: center;
+  margin: 8px 0;
+}
 
 .legend {
   display: flex;
@@ -427,16 +503,26 @@ table tr:nth-child(even) td { background: transparent; }
   display: inline-block;
   background: var(--muted);
 }
-.dot--green { background: #22c55e; }
-.dot--red { background: #ef4444; }
-.dot--amber { background: #f59e0b; }
+.dot--green {
+  background: #22c55e;
+}
+.dot--red {
+  background: #ef4444;
+}
+.dot--amber {
+  background: #f59e0b;
+}
 
 .pill--status {
   background: #e7edf6;
   color: var(--text);
 }
 
-.with-icon { display: inline-flex; gap: 8px; align-items: center; }
+.with-icon {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
 .accordion-trigger {
   cursor: pointer;
   /* Reset button appearance when used as a <button> element */
@@ -453,7 +539,10 @@ table tr:nth-child(even) td { background: transparent; }
   outline-offset: 2px;
   border-radius: 4px;
 }
-.accordion-caret { font-size: 14px; color: var(--muted); }
+.accordion-caret {
+  font-size: 14px;
+  color: var(--muted);
+}
 
 .empty-state {
   text-align: center;
@@ -476,9 +565,15 @@ table tr:nth-child(even) td { background: transparent; }
   padding: var(--space-md);
 }
 @media (max-width: 768px) {
-  body { padding: 18px; }
-  .hero { flex-direction: column; }
-  .layout { grid-template-columns: 1fr; }
+  body {
+    padding: 18px;
+  }
+  .hero {
+    flex-direction: column;
+  }
+  .layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 html.is-embedded .hero {

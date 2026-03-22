@@ -1,4 +1,5 @@
 """Fetch group lists per institute via timetable proxy and cache to disk."""
+
 from __future__ import annotations
 
 import json
@@ -6,7 +7,6 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import List
 
 import requests
 
@@ -30,7 +30,9 @@ def fetch_groups(institute: str) -> list[str]:
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON from proxy for {institute!r}: {exc}") from exc
     if not isinstance(data, list):
-        raise ValueError(f"Unexpected response type for {institute!r}: {type(data).__name__}")
+        raise ValueError(
+            f"Unexpected response type for {institute!r}: {type(data).__name__}"
+        )
     return data
 
 
@@ -73,38 +75,51 @@ def main():
             groups = fetch_groups(inst)
             cache_groups(inst, groups)
             logger.info("%s: %d groups fetched", inst, len(groups))
-            results.append({
-                "institute": inst,
-                "status": "ok",
-                "groups_count": len(groups),
-                "used_cache": False,
-            })
+            results.append(
+                {
+                    "institute": inst,
+                    "status": "ok",
+                    "groups_count": len(groups),
+                    "used_cache": False,
+                }
+            )
         except Exception as exc:
             cached = load_cached(inst)
             if cached:
-                logger.warning("%s: fetch failed (%s), using cache (%d groups)", inst, exc, len(cached))
-                results.append({
-                    "institute": inst,
-                    "status": "cache_fallback",
-                    "groups_count": len(cached),
-                    "used_cache": True,
-                    "error": str(exc),
-                })
+                logger.warning(
+                    "%s: fetch failed (%s), using cache (%d groups)",
+                    inst,
+                    exc,
+                    len(cached),
+                )
+                results.append(
+                    {
+                        "institute": inst,
+                        "status": "cache_fallback",
+                        "groups_count": len(cached),
+                        "used_cache": True,
+                        "error": str(exc),
+                    }
+                )
             else:
                 logger.error("%s: fetch failed and no cache available — %s", inst, exc)
-                results.append({
-                    "institute": inst,
-                    "status": "failed",
-                    "groups_count": 0,
-                    "used_cache": False,
-                    "error": str(exc),
-                })
+                results.append(
+                    {
+                        "institute": inst,
+                        "status": "failed",
+                        "groups_count": 0,
+                        "used_cache": False,
+                        "error": str(exc),
+                    }
+                )
 
     if SUMMARY_PATH:
         payload = {
             "processed_institutes_count": len(results),
             "institutes": results,
-            "failed_institutes": [r["institute"] for r in results if r["status"] == "failed"],
+            "failed_institutes": [
+                r["institute"] for r in results if r["status"] == "failed"
+            ],
         }
         with open(SUMMARY_PATH, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
