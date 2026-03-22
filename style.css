@@ -267,6 +267,21 @@ form button {
   gap: 10px 12px;
 }
 
+.field-group .group-label {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.field-group label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-group select {
+  width: 100%;
+}
+
 .field-group:first-of-type {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
