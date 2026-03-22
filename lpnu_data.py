@@ -1,12 +1,15 @@
 """HTTP client for LPNU timetable endpoints."""
 from __future__ import annotations
 
+import logging
 import os
 import random
 import threading
 import time
 from typing import Dict, Optional
 import requests
+
+logger = logging.getLogger(__name__)
 
 from lpnu_parser import (
     parse_groups,
@@ -85,8 +88,9 @@ def _fetch_html(url: str, params: Optional[Dict[str, str]] = None) -> str:
             return text
         except Exception as exc:  # noqa: PERF203 (intentional retry)
             last_err = exc
-            # backoff with jitter
-            time.sleep(0.5 * (2 ** i) + random.random() * 0.3)
+            wait = 0.5 * (2 ** i) + random.random() * 0.3
+            logger.warning("Fetch attempt %d/%d failed: %s — retrying in %.1fs", i + 1, attempts, exc, wait)
+            time.sleep(wait)
     raise last_err  # type: ignore[misc]
 
 

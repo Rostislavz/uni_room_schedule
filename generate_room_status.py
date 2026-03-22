@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 from typing import Iterable
 
 SCHEDULE_ROOT = "schedules"
 OUTPUT_ROOT = "аудиторії"
+
+logger = logging.getLogger(__name__)
 
 
 def roman_to_int(s: str) -> int:
@@ -21,31 +24,50 @@ def roman_to_int(s: str) -> int:
         "D": 500,
         "M": 1000,
     }
+    s_upper = s.upper()
+    if not s_upper:
+        raise ValueError("Empty Roman numeral string")
+    invalid = set(s_upper) - set(roman)
+    if invalid:
+        raise ValueError(f"Invalid Roman numeral characters {invalid!r} in {s!r}")
     prev = 0
     total = 0
-    for char in reversed(s.upper()):
-        value = roman.get(char, 0)
+    for char in reversed(s_upper):
+        value = roman[char]
         if value < prev:
             total -= value
         else:
             total += value
             prev = value
+    if total <= 0:
+        raise ValueError(f"Roman numeral resolved to non-positive value: {s!r}")
     return total
 
 
-def parse_room_info(room_str):
-    """Extract building, floor, room from strings like '804а V н.к.'"""
-    match = re.match(r"(?P<room>\d{3}[а-яa-z]?)\s+(?P<building>[IVXLСНІМК]+)\sн\.к\.\s*", room_str.strip(), re.IGNORECASE)
+def parse_room_info(room_str: str):
+    """Extract (building, floor, room) from strings like '804а V н.к.'"""
+    if not room_str or not room_str.strip():
+        return None
+    match = re.match(
+        r"(?P<room>\d{3}[а-яa-z]?)\s+(?P<building>[IVXLСНІМК]+)\sн\.к\.\s*",
+        room_str.strip(),
+        re.IGNORECASE,
+    )
     if not match:
+        logger.debug("Room pattern mismatch: %r", room_str)
         return None
     room = match.group("room")
     building_roman = match.group("building").upper()
-    building = roman_to_int(building_roman)
+    try:
+        building = roman_to_int(building_roman)
+    except ValueError as exc:
+        logger.warning("Cannot parse building numeral %r in %r: %s", building_roman, room_str, exc)
+        return None
     floor = room[0]
     return str(building), str(floor), room
 
 
-def iter_schedule_files(root: str = SCHEDULE_ROOT):
+def iter_schedule_files(root: str = SCHEDULE_ROOT) -> Iterable[str]:
     for dirpath, _dirnames, filenames in os.walk(root):
         for name in filenames:
             if not name.endswith("_schedule.json"):
@@ -54,23 +76,37 @@ def iter_schedule_files(root: str = SCHEDULE_ROOT):
 
 
 def load_schedule(path: str):
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Corrupted schedule file {path!r}: {exc}") from exc
 
 
 def append_record(path: str, record: dict):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    if os.path.exists(path):
+    try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-    else:
+    except FileNotFoundError:
+        data = []
+    except json.JSONDecodeError:
+        logger.warning("Corrupted %r — resetting to empty list", path)
         data = []
     data.append(record)
-    with open(path, "w", encoding="utf-8") as f:
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, path)
 
 
-def clear_generated_rooms(root: str = OUTPUT_ROOT):
+def clear_generated_rooms(root: str = OUTPUT_ROOT) -> int:
+    abs_root = os.path.abspath(root)
+    abs_expected = os.path.abspath(OUTPUT_ROOT)
+    if abs_root == "/" or not abs_root.startswith(abs_expected):
+        raise ValueError(
+            f"Refusing to clear {abs_root!r} — must be inside {abs_expected!r}"
+        )
     removed = 0
     if not os.path.exists(root):
         return removed
@@ -78,18 +114,31 @@ def clear_generated_rooms(root: str = OUTPUT_ROOT):
         for name in filenames:
             if not name.endswith(".json"):
                 continue
-            os.remove(os.path.join(dirpath, name))
-            removed += 1
+            try:
+                os.remove(os.path.join(dirpath, name))
+                removed += 1
+            except OSError as exc:
+                logger.error("Failed to remove %s: %s", name, exc)
     return removed
 
 
-def process_schedule(path: str):
+def process_schedule(path: str) -> tuple[int, int]:
+    """Process one schedule file. Returns (processed, skipped) counts."""
     group_code = os.path.basename(path).replace("_schedule.json", "")
-    schedule = load_schedule(path)
+    try:
+        schedule = load_schedule(path)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        return 0, 0
+
+    processed = 0
+    skipped = 0
     for entry in schedule:
         room_str = entry.get("Аудиторія", "")
         parsed = parse_room_info(room_str)
         if not parsed:
+            if room_str:
+                skipped += 1
             continue
         building, floor, room = parsed
         record = {
@@ -102,9 +151,16 @@ def process_schedule(path: str):
             "Тип тижня": entry.get("Тип тижня", "постійно"),
         }
         append_record(os.path.join(OUTPUT_ROOT, building, floor, f"{room}.json"), record)
+        processed += 1
+    return processed, skipped
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
     parser = argparse.ArgumentParser(description="Generate room occupancy files from schedules.")
     parser.add_argument(
         "--force",
@@ -115,11 +171,21 @@ def main():
 
     if args.force:
         removed = clear_generated_rooms(OUTPUT_ROOT)
-        print(f"🧹 removed {removed} existing room files")
+        logger.info("Removed %d existing room files", removed)
 
+    total_processed = 0
+    total_skipped = 0
     for schedule_path in iter_schedule_files():
-        process_schedule(schedule_path)
-        print(f"✅ processed {schedule_path}")
+        processed, skipped = process_schedule(schedule_path)
+        total_processed += processed
+        total_skipped += skipped
+        logger.info("Processed %s (%d entries, %d skipped)", schedule_path, processed, skipped)
+
+    logger.info(
+        "Done — total entries written: %d, skipped (unparseable room): %d",
+        total_processed,
+        total_skipped,
+    )
 
 
 if __name__ == "__main__":

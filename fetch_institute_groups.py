@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import time
 from pathlib import Path
 from typing import List
 
@@ -14,19 +16,25 @@ PROXY_BASE = "https://timetable-proxy-production.up.railway.app/institutes"
 CACHE_DIR = Path("groups_cache")
 CACHE_DIR.mkdir(exist_ok=True)
 SUMMARY_PATH = os.environ.get("LPNU_GROUPS_FETCH_SUMMARY_PATH", "").strip()
+CACHE_MAX_AGE_DAYS = 7
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_groups(institute: str) -> List[str]:
     url = f"{PROXY_BASE}/{institute}/groups"
     resp = requests.get(url, timeout=30)
     resp.raise_for_status()
-    data = resp.json()
+    try:
+        data = resp.json()
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON from proxy for {institute!r}: {exc}") from exc
     if not isinstance(data, list):
-        raise ValueError(f"Unexpected response for {institute}: {data}")
+        raise ValueError(f"Unexpected response type for {institute!r}: {type(data).__name__}")
     return data
 
 
-def cache_groups(institute: str, groups: List[str]):
+def cache_groups(institute: str, groups: List[str]) -> Path:
     path = CACHE_DIR / f"{institute}.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(groups, f, ensure_ascii=False, indent=2)
@@ -35,19 +43,36 @@ def cache_groups(institute: str, groups: List[str]):
 
 def load_cached(institute: str) -> List[str]:
     path = CACHE_DIR / f"{institute}.json"
-    if path.exists():
+    if not path.exists():
+        return []
+    age_days = (time.time() - path.stat().st_mtime) / 86400
+    if age_days > CACHE_MAX_AGE_DAYS:
+        logger.warning(
+            "Cache for %r is %.0f days old (limit: %d) — will attempt live fetch",
+            institute,
+            age_days,
+            CACHE_MAX_AGE_DAYS,
+        )
+    try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
-    return []
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.error("Failed to read cache for %r: %s", institute, exc)
+        return []
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
     results = []
     for inst in INSTITUTES:
         try:
             groups = fetch_groups(inst)
             cache_groups(inst, groups)
-            print(f"✅ {inst}: {len(groups)} груп")
+            logger.info("%s: %d groups fetched", inst, len(groups))
             results.append({
                 "institute": inst,
                 "status": "ok",
@@ -57,7 +82,7 @@ def main():
         except Exception as exc:
             cached = load_cached(inst)
             if cached:
-                print(f"⚠️ {inst}: помилка {exc}, використовую кеш ({len(cached)})")
+                logger.warning("%s: fetch failed (%s), using cache (%d groups)", inst, exc, len(cached))
                 results.append({
                     "institute": inst,
                     "status": "cache_fallback",
@@ -66,7 +91,7 @@ def main():
                     "error": str(exc),
                 })
             else:
-                print(f"❌ {inst}: {exc}")
+                logger.error("%s: fetch failed and no cache available — %s", inst, exc)
                 results.append({
                     "institute": inst,
                     "status": "failed",

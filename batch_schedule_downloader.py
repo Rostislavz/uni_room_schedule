@@ -3,8 +3,11 @@ from __future__ import annotations
 
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 import json
+import logging
 import os
 from typing import Any, Iterable, NamedTuple
+
+logger = logging.getLogger(__name__)
 
 from lpnu_data import get_groups, get_partial_groups, get_timetable, get_partial_timetable, TemporaryFetchError
 from fetch_institute_groups import load_cached
@@ -62,7 +65,9 @@ def discover_partial_groups(semester_half: int, institute: str = "All", semester
     try:
         return get_partial_groups(semester_half=semester_half, institute=institute, semester=semester)
     except TemporaryFetchError as exc:
-        print(f"⚠️  Не вдалося отримати список груп для половини семестру {semester_half} ({institute}): {exc}")
+        logger.warning(
+            "Could not fetch group list for semester half %d (%s): %s", semester_half, institute, exc
+        )
         return []
 
 
@@ -139,13 +144,13 @@ def _run_parallel(groups: Iterable[str], worker_fn):
         for group in group_list:
             result = worker_fn(group)
             _accumulate(stats, result)
-            print(result.message)
+            logger.info(result.message)
             if result.is_temp_error:
                 temp_errors += 1
                 if temp_errors >= MAX_TEMP_ERRORS_TOTAL:
-                    print(
-                        f"⚠️ Зупиняю запуск: накопичено {temp_errors} тимчасових помилок "
-                        "(ймовірно throttling/недоступність LPNU)."
+                    logger.warning(
+                        "Stopping: accumulated %d temporary errors (likely LPNU throttling).",
+                        temp_errors,
                     )
                     break
             else:
@@ -170,14 +175,14 @@ def _run_parallel(groups: Iterable[str], worker_fn):
             for fut in done:
                 result = fut.result()
                 _accumulate(stats, result)
-                print(result.message)
+                logger.info(result.message)
                 if result.is_temp_error:
                     temp_errors += 1
                     if temp_errors >= MAX_TEMP_ERRORS_TOTAL and not stop_submitting:
                         stop_submitting = True
-                        print(
-                            f"⚠️ Зупиняю запуск: накопичено {temp_errors} тимчасових помилок "
-                            "(ймовірно throttling/недоступність LPNU)."
+                        logger.warning(
+                            "Stopping: accumulated %d temporary errors (likely LPNU throttling).",
+                            temp_errors,
                         )
                 else:
                     temp_errors = 0
@@ -223,6 +228,11 @@ def _compute_total_stats(primary_stats: dict[str, Any], partial_stats: dict[str,
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
     institute = os.environ.get("LPNU_INSTITUTE", "All")
     semester = os.environ.get("LPNU_SEMESTER", DEFAULT_SEMESTER)
     env_groups = os.environ.get("GROUPS", "")
@@ -237,12 +247,12 @@ def main():
     if not groups:
         if env_groups:
             groups = [g.strip() for g in env_groups.split(",") if g.strip()]
-            print(f"⚠️ Автовизначення груп недоступне, використовую GROUPS env: {len(groups)}")
+            logger.warning("Auto-discovery unavailable, using GROUPS env (%d groups)", len(groups))
         elif file_groups:
             groups = file_groups
-            print(f"⚠️ Автовизначення груп недоступне, використовую groups.txt: {len(groups)}")
+            logger.warning("Auto-discovery unavailable, using groups.txt (%d groups)", len(groups))
         else:
-            print("❌ Не вдалося знайти групи. Додай їх у groups.txt або змінну GROUPS=oi-31,oi-32")
+            logger.error("No groups found. Add them to groups.txt or set GROUPS=oi-31,oi-32")
             if SUMMARY_PATH:
                 with open(SUMMARY_PATH, "w", encoding="utf-8") as f:
                     json.dump(
@@ -260,7 +270,7 @@ def main():
                     )
             return
     else:
-        print(f"Знайдено груп: {len(groups)}")
+        logger.info("Groups found: %d", len(groups))
 
     primary_stats = download_groups(groups, semester=semester)
     partial_stats: dict[str, dict[str, Any]] = {"1": _empty_stats(), "2": _empty_stats()}
@@ -273,15 +283,18 @@ def main():
             continue
 
         if PARTIAL_FALLBACK_TO_ALL and groups:
-            print(
-                f"⚠️ Для half {half} не знайдено окремий список груп, використовую основний список ({len(groups)})."
+            logger.warning(
+                "No separate group list for half %d — falling back to main list (%d groups).",
+                half,
+                len(groups),
             )
             partial_stats[str(half)] = download_partial_groups(groups, semester_half=half, semester=semester)
             continue
 
-        print(
-            f"⚠️ Для half {half} не вдалося отримати список груп, пропускаю. "
-            "Щоб примусово пробувати всі групи, встанови LPNU_PARTIAL_FALLBACK_TO_ALL=1."
+        logger.warning(
+            "Could not fetch group list for half %d — skipping. "
+            "Set LPNU_PARTIAL_FALLBACK_TO_ALL=1 to force using the main list.",
+            half,
         )
 
     if SUMMARY_PATH:

@@ -5,6 +5,7 @@ with adaptations for Python + BeautifulSoup.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
@@ -21,6 +22,8 @@ DAY_ABBR = {
     7: "Нд",
 }
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class Lesson:
@@ -35,7 +38,7 @@ class Lesson:
     urls: List[str]
     date: Optional[str] = None
 
-    def as_dict(self):
+    def as_dict(self) -> dict:
         return {
             "День": self.day,
             "Пара": self.number,
@@ -46,7 +49,8 @@ class Lesson:
             "Підгрупа": self.subgroup,
             "Тип тижня": self.week_type,
             "Посилання": self.urls,
-            **({"Дата": self.date} if self.date else {}),
+            # Always emit "Дата" for a consistent schema; null when not a date-based schedule
+            "Дата": self.date,
         }
 
 
@@ -68,9 +72,17 @@ class TimetableParser:
         soup = BeautifulSoup(html, "html.parser")
         select = soup.select_one(selector)
         if not select:
+            logger.warning(
+                "Selector not found: %r (page length: %d chars) — LPNU HTML may have changed",
+                selector,
+                len(html),
+            )
             return []
         options = [opt.get("value", "") for opt in select.find_all("option")]
-        return sorted([o for o in options if o and o != "All"], key=str.lower)
+        result = sorted([o for o in options if o and o != "All"], key=str.lower)
+        if not result:
+            logger.warning("Selector %r matched but returned no options", selector)
+        return result
 
     def _parse_select_many(self, html: str, selectors: List[str]) -> List[str]:
         for selector in selectors:
@@ -150,7 +162,9 @@ class TimetableParser:
         idx = dt.weekday() + 1
         return DAY_ABBR.get(idx, text), dt.date().isoformat()
 
-    def _parse_pair(self, pair_block: Tag, day_abbr: str, pair_num: int, date_str: Optional[str]):
+    def _parse_pair(
+        self, pair_block: Tag, day_abbr: str, pair_num: int, date_str: Optional[str]
+    ) -> List[Lesson]:
         lessons: List[Lesson] = []
         for group_content in pair_block.select(".group_content"):
             parent = group_content.parent
@@ -183,7 +197,7 @@ class TimetableParser:
                 idx = parts.index("sub")
                 subgroup_num = int(parts[idx + 1])
                 subgroup = "перша" if subgroup_num == 1 else "друга"
-            except Exception:
+            except (ValueError, IndexError):
                 subgroup = "вся група"
 
         tail = parts[-1] if parts else "full"
