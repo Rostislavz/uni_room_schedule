@@ -21,7 +21,7 @@ CACHE_MAX_AGE_DAYS = 7
 logger = logging.getLogger(__name__)
 
 
-def fetch_groups(institute: str) -> List[str]:
+def fetch_groups(institute: str) -> list[str]:
     url = f"{PROXY_BASE}/{institute}/groups"
     resp = requests.get(url, timeout=30)
     resp.raise_for_status()
@@ -34,14 +34,14 @@ def fetch_groups(institute: str) -> List[str]:
     return data
 
 
-def cache_groups(institute: str, groups: List[str]) -> Path:
+def cache_groups(institute: str, groups: list[str]) -> Path:
     path = CACHE_DIR / f"{institute}.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(groups, f, ensure_ascii=False, indent=2)
     return path
 
 
-def load_cached(institute: str) -> List[str]:
+def load_cached(institute: str) -> list[str]:
     path = CACHE_DIR / f"{institute}.json"
     if not path.exists():
         return []

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="app-data-root" content="data">
   <title>Статус аудиторій</title>
-  <link rel="stylesheet" href="style.css?v=3.1">
+  <link rel="stylesheet" href="style.css?v=3.0">
 </head>
 <body>
   <div class="page">
@@ -13,10 +13,10 @@
       <div class="hero__text">
         <p class="eyebrow">LPNU Rooms</p>
         <h1>Статус аудиторій</h1>
-        <p class="lede">Перевіряй вільні аудиторії або дивись календар зайнятості по корпусах.</p>
+        <p class="lede">Перевіряй вільні аудиторії або дивись календар зайнятості по корпусах. Наприклад: знайди вільні аудиторії в корпусі 1 в понеділок → <strong>Вільні аудиторії</strong>; або перевір розклад аудиторії 201 → <strong>Календар аудиторії</strong>.</p>
         <div class="pills">
           <span class="pill pill--status"><span class="dot dot--green"></span>Джерело: student.lpnu.ua</span>
-          <span class="pill pill--accent" title="Використовувати збережені дані без запиту до сервера">Офлайн режим</span>
+          <span id="freshness-pill" class="pill pill--status" title="Час останнього оновлення даних">Дані завантажуються…</span>
         </div>
       </div>
       <div class="hero__controls">

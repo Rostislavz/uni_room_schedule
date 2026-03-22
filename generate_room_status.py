@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -10,6 +11,7 @@ from typing import Iterable
 
 SCHEDULE_ROOT = "schedules"
 OUTPUT_ROOT = "аудиторії"
+HASHES_PATH = os.path.join(OUTPUT_ROOT, ".schedule_hashes.json")
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,28 @@ def parse_room_info(room_str: str):
         return None
     floor = room[0]
     return str(building), str(floor), room
+
+
+def _file_hash(path: str) -> str:
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def load_hashes(path: str = HASHES_PATH) -> dict[str, str]:
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_hashes(hashes: dict[str, str], path: str = HASHES_PATH) -> None:
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(hashes, f, ensure_ascii=False)
 
 
 def iter_schedule_files(root: str = SCHEDULE_ROOT) -> Iterable[str]:
@@ -172,19 +196,32 @@ def main():
     if args.force:
         removed = clear_generated_rooms(OUTPUT_ROOT)
         logger.info("Removed %d existing room files", removed)
+        known_hashes: dict[str, str] = {}
+    else:
+        known_hashes = load_hashes()
 
     total_processed = 0
     total_skipped = 0
+    total_unchanged = 0
+    updated_hashes = dict(known_hashes)
+
     for schedule_path in iter_schedule_files():
+        current_hash = _file_hash(schedule_path)
+        if not args.force and known_hashes.get(schedule_path) == current_hash:
+            total_unchanged += 1
+            continue
         processed, skipped = process_schedule(schedule_path)
         total_processed += processed
         total_skipped += skipped
+        updated_hashes[schedule_path] = current_hash
         logger.info("Processed %s (%d entries, %d skipped)", schedule_path, processed, skipped)
 
+    save_hashes(updated_hashes)
     logger.info(
-        "Done — total entries written: %d, skipped (unparseable room): %d",
+        "Done — entries written: %d, skipped (unparseable room): %d, unchanged (skipped): %d",
         total_processed,
         total_skipped,
+        total_unchanged,
     )
 
 

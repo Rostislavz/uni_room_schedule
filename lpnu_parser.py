@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 from bs4 import BeautifulSoup, NavigableString, Tag
 
 DAY_ORDER = ["пн", "вт", "ср", "чт", "пт", "сб", "нд"]
@@ -35,7 +35,7 @@ class Lesson:
     lesson_type: str
     subgroup: str
     week_type: str
-    urls: List[str]
+    urls: list[str]
     date: Optional[str] = None
 
     def as_dict(self) -> dict:
@@ -68,7 +68,7 @@ class TimetableParser:
     DEPARTMENTS_SELECTOR = "#edit-department-name-selective"
     TIMETABLE_SELECTOR = ".view-content"
 
-    def _parse_select(self, html: str, selector: str) -> List[str]:
+    def _parse_select(self, html: str, selector: str) -> list[str]:
         soup = BeautifulSoup(html, "html.parser")
         select = soup.select_one(selector)
         if not select:
@@ -84,7 +84,7 @@ class TimetableParser:
             logger.warning("Selector %r matched but returned no options", selector)
         return result
 
-    def _parse_select_many(self, html: str, selectors: List[str]) -> List[str]:
+    def _parse_select_many(self, html: str, selectors: list[str]) -> list[str]:
         for selector in selectors:
             values = self._parse_select(html, selector)
             if values:
@@ -92,32 +92,32 @@ class TimetableParser:
         return []
 
     # ===== Meta lists =====
-    def parse_institutes(self, html: str) -> List[str]:
+    def parse_institutes(self, html: str) -> list[str]:
         return self._parse_select(html, self.INSTITUTES_SELECTOR)
 
-    def parse_groups(self, html: str) -> List[str]:
+    def parse_groups(self, html: str) -> list[str]:
         return self._parse_select_many(html, self.GROUPS_SELECTORS)
 
-    def parse_partial_groups(self, html: str) -> List[str]:
+    def parse_partial_groups(self, html: str) -> list[str]:
         return self._parse_select_many(html, self.GROUPS_SELECTORS)
 
-    def parse_selective_groups(self, html: str) -> List[str]:
+    def parse_selective_groups(self, html: str) -> list[str]:
         return self._parse_select_many(html, self.SELECTIVE_GROUPS_SELECTORS)
 
-    def parse_lecturers(self, html: str) -> List[str]:
+    def parse_lecturers(self, html: str) -> list[str]:
         return self._parse_select(html, self.LECTURERS_SELECTOR)
 
-    def parse_lecturer_departments(self, html: str) -> List[str]:
+    def parse_lecturer_departments(self, html: str) -> list[str]:
         return self._parse_select(html, self.DEPARTMENTS_SELECTOR)
 
     # ===== Timetable =====
-    def parse_timetable(self, html: str) -> List[dict]:
+    def parse_timetable(self, html: str) -> list[dict]:
         soup = BeautifulSoup(html, "html.parser")
         content = soup.select_one(self.TIMETABLE_SELECTOR)
         if not content:
             raise ValueError("No timetable content found")
 
-        lessons: List[Lesson] = []
+        lessons: list[Lesson] = []
         current_day_abbr: Optional[str] = None
         current_date: Optional[str] = None
         current_pair = None
@@ -164,8 +164,8 @@ class TimetableParser:
 
     def _parse_pair(
         self, pair_block: Tag, day_abbr: str, pair_num: int, date_str: Optional[str]
-    ) -> List[Lesson]:
-        lessons: List[Lesson] = []
+    ) -> list[Lesson]:
+        lessons: list[Lesson] = []
         for group_content in pair_block.select(".group_content"):
             parent = group_content.parent
             meta = self._parse_lesson_id(parent.get("id", "")) if parent else {}
@@ -211,8 +211,8 @@ class TimetableParser:
         return {"subgroup_label": subgroup, "week_label": week_label}
 
     def _parse_lesson_data(self, element: Tag):
-        texts: List[str] = []
-        urls: List[str] = []
+        texts: list[str] = []
+        urls: list[str] = []
         for node in element.contents:
             if isinstance(node, NavigableString):
                 content = node.strip()
@@ -260,29 +260,29 @@ class TimetableParser:
         return "Лекція"
 
 
-def parse_timetable(html: str) -> List[dict]:
+def parse_timetable(html: str) -> list[dict]:
     return TimetableParser().parse_timetable(html)
 
 
-def parse_groups(html: str) -> List[str]:
+def parse_groups(html: str) -> list[str]:
     return TimetableParser().parse_groups(html)
 
 
-def parse_partial_groups(html: str) -> List[str]:
+def parse_partial_groups(html: str) -> list[str]:
     return TimetableParser().parse_partial_groups(html)
 
 
-def parse_institutes(html: str) -> List[str]:
+def parse_institutes(html: str) -> list[str]:
     return TimetableParser().parse_institutes(html)
 
 
-def parse_selective_groups(html: str) -> List[str]:
+def parse_selective_groups(html: str) -> list[str]:
     return TimetableParser().parse_selective_groups(html)
 
 
-def parse_lecturers(html: str) -> List[str]:
+def parse_lecturers(html: str) -> list[str]:
     return TimetableParser().parse_lecturers(html)
 
 
-def parse_lecturer_departments(html: str) -> List[str]:
+def parse_lecturer_departments(html: str) -> list[str]:
     return TimetableParser().parse_lecturer_departments(html)

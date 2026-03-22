@@ -14,11 +14,18 @@
   --danger: #991b1b;
   --radius: 16px;
   --shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
-  /* Cell status colours — defined once, used everywhere */
+  /* Cell status colours */
   --cell-busy-bg: #ffe0e0;
   --cell-busy-text: #b42318;
   --cell-free-bg: #e7f7e7;
   --cell-free-text: #186a3b;
+  /* Spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 36px;
 }
 
 * { box-sizing: border-box; }
@@ -272,6 +279,12 @@ form button {
   grid-template-columns: repeat(2, minmax(160px, 1fr));
 }
 
+@media (max-width: 600px) {
+  .field-group.two-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
 .group-label {
   margin: 0;
   font-size: 12px;
@@ -442,34 +455,25 @@ table tr:nth-child(even) td { background: transparent; }
 }
 .accordion-caret { font-size: 14px; color: var(--muted); }
 
-.empty-state, .error-state {
+.empty-state {
   text-align: center;
-  padding: 16px;
+  padding: var(--space-lg);
   color: var(--muted);
 }
-.empty-state button, .error-state button {
-  margin-top: 10px;
+.empty-state button {
+  margin-top: var(--space-sm);
   height: 40px;
 }
 
-.tooltip {
-  position: relative;
+.result-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: var(--space-sm);
 }
 
-.tooltip:hover::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: 110%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #0f172a;
-  color: #fff;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 11px;
-  white-space: nowrap;
-  box-shadow: var(--shadow);
-  z-index: 5;
+.load-more-wrap {
+  text-align: center;
+  padding: var(--space-md);
 }
 @media (max-width: 768px) {
   body { padding: 18px; }

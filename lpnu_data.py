@@ -1,12 +1,13 @@
 """HTTP client for LPNU timetable endpoints."""
 from __future__ import annotations
 
+import atexit
 import logging
 import os
 import random
 import threading
 import time
-from typing import Dict, Optional
+from typing import Optional
 import requests
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,8 @@ class TemporaryFetchError(RuntimeError):
 
 
 _THREAD_LOCAL = threading.local()
+_ALL_SESSIONS: list[requests.Session] = []
+_SESSIONS_LOCK = threading.Lock()
 
 
 def _get_session() -> requests.Session:
@@ -57,7 +60,22 @@ def _get_session() -> requests.Session:
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         })
         _THREAD_LOCAL.session = session
+        with _SESSIONS_LOCK:
+            _ALL_SESSIONS.append(session)
     return session
+
+
+def _close_all_sessions() -> None:
+    with _SESSIONS_LOCK:
+        for session in _ALL_SESSIONS:
+            try:
+                session.close()
+            except Exception:
+                pass
+        _ALL_SESSIONS.clear()
+
+
+atexit.register(_close_all_sessions)
 
 # Helpers
 
@@ -74,7 +92,7 @@ def _looks_invalid_lpnu_page(text: str) -> bool:
     return not (has_timetable or has_group_select)
 
 
-def _fetch_html(url: str, params: Optional[Dict[str, str]] = None) -> str:
+def _fetch_html(url: str, params: Optional[dict[str, str]] = None) -> str:
     attempts = max(1, RETRY_ATTEMPTS)
     last_err: Exception | None = None
     session = _get_session()
