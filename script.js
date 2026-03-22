@@ -1,73 +1,81 @@
 // ===================== Параметри =====================
 const pairTimes = {
-    1: '08:30 – 09:50',
-    2: '10:05 – 11:25',
-    3: '11:40 – 13:00',
-    4: '13:15 – 14:35',
-    5: '14:50 – 16:10',
-    6: '16:25 – 17:45',
-    7: '18:00 – 19:20',
-    8: '19:30 – 20:50'
-  };
-  
-  const fullDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-  const fullDayNames = {
-    'Пн': 'Понеділок',
-    'Вт': 'Вівторок',
-    'Ср': 'Середа',
-    'Чт': 'Четвер',
-    'Пт': 'Пʼятниця',
-    'Сб': 'Субота'
-  };
+  1: '08:30 – 09:50',
+  2: '10:05 – 11:25',
+  3: '11:40 – 13:00',
+  4: '13:15 – 14:35',
+  5: '14:50 – 16:10',
+  6: '16:25 – 17:45',
+  7: '18:00 – 19:20',
+  8: '19:30 – 20:50'
+};
 
-  // Фільтр тижня: 'all' | 'numerator' | 'denominator'
-  let currentWeekFilter = 'all';
-  const dataRoot = (document.querySelector('meta[name="app-data-root"]')?.content || 'data').replace(/\/+$/, '');
-  let dataIndexPromise = null;
-  const floorDataCache = new Map();
-  
-  // ===================== DOM =====================
-  const mode1Btn = document.getElementById('mode1');
-  const mode2Btn = document.getElementById('mode2');
+const fullDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+const fullDayNames = {
+  'Пн': 'Понеділок',
+  'Вт': 'Вівторок',
+  'Ср': 'Середа',
+  'Чт': 'Четвер',
+  'Пт': 'Пʼятниця',
+  'Сб': 'Субота'
+};
 
-  const setActiveMode = (modeId) => {
-    mode1Btn.classList.toggle('active', modeId === 'mode1');
-    mode2Btn.classList.toggle('active', modeId === 'mode2');
-  };
+// Week type constants — single source of truth
+const WEEK_TYPES = {
+  NUMERATOR: 'чисельник',
+  DENOMINATOR: 'знаменник',
+  PERMANENT: 'постійно',
+};
 
-  mode1Btn.addEventListener('click', () => {
-    setActiveMode('mode1');
-    showMode1();
-  });
-  mode2Btn.addEventListener('click', () => {
-    setActiveMode('mode2');
-    showMode2();
-  });
-  document.getElementById('week-all').addEventListener('click', () => setWeekFilter('all'));
-  document.getElementById('week-numerator').addEventListener('click', () => setWeekFilter('numerator'));
-  document.getElementById('week-denominator').addEventListener('click', () => setWeekFilter('denominator'));
+// Фільтр тижня: 'all' | 'numerator' | 'denominator'
+let currentWeekFilter = 'all';
+const dataRoot = (document.querySelector('meta[name="app-data-root"]')?.content || 'data').replace(/\/+$/, '');
+let dataIndexPromise = null;
+const floorDataCache = new Map();
+
+// ===================== DOM =====================
+const mode1Btn = document.getElementById('mode1');
+const mode2Btn = document.getElementById('mode2');
+
+const setActiveMode = (modeId) => {
+  mode1Btn.classList.toggle('active', modeId === 'mode1');
+  mode2Btn.classList.toggle('active', modeId === 'mode2');
+};
+
+mode1Btn.addEventListener('click', () => {
+  setActiveMode('mode1');
+  showMode1();
+});
+mode2Btn.addEventListener('click', () => {
+  setActiveMode('mode2');
+  showMode2();
+});
+document.getElementById('week-all').addEventListener('click', () => setWeekFilter('all'));
+document.getElementById('week-numerator').addEventListener('click', () => setWeekFilter('numerator'));
+document.getElementById('week-denominator').addEventListener('click', () => setWeekFilter('denominator'));
 
 document.addEventListener('DOMContentLoaded', () => {
+  const embedded = window.self !== window.top;
+  document.documentElement.classList.toggle('is-embedded', embedded);
   renderStaticSchedule();
   restoreScheduleAccordion();
   setActiveMode('mode1');
   showMode1();
 });
-  
-  const controls = document.getElementById('controls');
-  const output = document.getElementById('output');
-  
-  // ===================== Загальні =====================
-  function setWeekFilter(filter) {
-    currentWeekFilter = filter;
-    document.querySelectorAll('.week-btn').forEach(btn => btn.classList.remove('active'));
-    if (filter === 'all') document.getElementById('week-all').classList.add('active');
-    if (filter === 'numerator') document.getElementById('week-numerator').classList.add('active');
-    if (filter === 'denominator') document.getElementById('week-denominator').classList.add('active');
-    
-    // Перерендерити таблицю при зміні фільтра
-    refreshCurrentView();
-  }
+
+const controls = document.getElementById('controls');
+const output = document.getElementById('output');
+
+// ===================== Загальні =====================
+function setWeekFilter(filter) {
+  currentWeekFilter = filter;
+  document.querySelectorAll('.week-btn').forEach(btn => btn.classList.remove('active'));
+  if (filter === 'all') document.getElementById('week-all').classList.add('active');
+  if (filter === 'numerator') document.getElementById('week-numerator').classList.add('active');
+  if (filter === 'denominator') document.getElementById('week-denominator').classList.add('active');
+
+  refreshCurrentView();
+}
 
 function refreshCurrentView() {
   const activeMode = document.querySelector('.tab.active') || mode1Btn;
@@ -75,18 +83,18 @@ function refreshCurrentView() {
     const buildingSelect = document.querySelector('select#Корпус');
     const floorSelect = document.querySelector('select#Поверх');
     const daySelect = document.querySelector('select#День');
-      if (buildingSelect && daySelect) {
-        renderFreeBusy(buildingSelect.value, floorSelect?.value || '', daySelect.value);
-      }
-    } else if (activeMode && activeMode.id === 'mode2') {
-      const buildingSelect = document.querySelector('select#Корпус');
-      const floorSelect = document.querySelector('select#Поверх');
-      const roomSelect = document.querySelector('select#Аудиторія');
-      if (buildingSelect && roomSelect) {
-        renderCalendar(buildingSelect.value, floorSelect?.value || '', roomSelect.value);
-      }
+    if (buildingSelect && daySelect) {
+      renderFreeBusy(buildingSelect.value, floorSelect?.value || '', daySelect.value);
+    }
+  } else if (activeMode && activeMode.id === 'mode2') {
+    const buildingSelect = document.querySelector('select#Корпус');
+    const floorSelect = document.querySelector('select#Поверх');
+    const roomSelect = document.querySelector('select#Аудиторія');
+    if (buildingSelect && roomSelect) {
+      renderCalendar(buildingSelect.value, floorSelect?.value || '', roomSelect.value);
     }
   }
+}
 
 function filterByWeek(entries) {
   const norm = (v) => (v || '').toString().trim().toLowerCase();
@@ -94,109 +102,109 @@ function filterByWeek(entries) {
   if (currentWeekFilter === 'numerator') {
     return entries.filter(e => {
       const t = norm(e['Тип тижня']);
-      return t === 'чисельник' || t === 'постійно';
+      return t === WEEK_TYPES.NUMERATOR || t === WEEK_TYPES.PERMANENT;
     });
   }
   if (currentWeekFilter === 'denominator') {
     return entries.filter(e => {
       const t = norm(e['Тип тижня']);
-      return t === 'знаменник' || t === 'постійно';
+      return t === WEEK_TYPES.DENOMINATOR || t === WEEK_TYPES.PERMANENT;
     });
   }
   return entries;
 }
 
-  function pathPart(value) {
-    return encodeURIComponent(String(value).trim());
-  }
+function pathPart(value) {
+  return encodeURIComponent(String(value).trim());
+}
 
-  async function loadDataIndex() {
-    if (!dataIndexPromise) {
-      dataIndexPromise = (async () => {
-        const res = await fetch(`${dataRoot}/index.json`, { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`Cannot load data index (${res.status})`);
+async function loadDataIndex() {
+  if (!dataIndexPromise) {
+    dataIndexPromise = (async () => {
+      const res = await fetch(`${dataRoot}/index.json`, { cache: 'no-cache' });
+      if (!res.ok) throw new Error(`Cannot load data index (${res.status})`);
+      return await res.json();
+    })();
+  }
+  return dataIndexPromise;
+}
+
+function sortNatural(values) {
+  return [...values].sort((a, b) => a.localeCompare(b, 'uk', { numeric: true }));
+}
+
+async function getBuildingList() {
+  try {
+    const index = await loadDataIndex();
+    return sortNatural(index.buildings.map(b => b.id));
+  } catch {
+    return [];
+  }
+}
+
+async function getFloors(building) {
+  try {
+    const index = await loadDataIndex();
+    const buildingEntry = index.buildings.find(b => b.id === building);
+    if (!buildingEntry) return [];
+    return sortNatural(buildingEntry.floors.map(f => f.id));
+  } catch {
+    return [];
+  }
+}
+
+async function getRooms(building, floor) {
+  try {
+    const index = await loadDataIndex();
+    const buildingEntry = index.buildings.find(b => b.id === building);
+    const floorEntry = buildingEntry?.floors.find(f => f.id === floor);
+    if (!floorEntry) return [];
+    return sortNatural(floorEntry.rooms);
+  } catch {
+    return [];
+  }
+}
+
+function getPairTime(n) {
+  return pairTimes[n] || '';
+}
+
+function getWeekLabel(weekType) {
+  if (weekType === WEEK_TYPES.NUMERATOR) return 'Ч';
+  if (weekType === WEEK_TYPES.DENOMINATOR) return 'З';
+  return '';
+}
+
+function getWeekClass(weekType) {
+  if (weekType === WEEK_TYPES.NUMERATOR) return 'numerator';
+  if (weekType === WEEK_TYPES.DENOMINATOR) return 'denominator';
+  return '';
+}
+
+async function loadFloorData(building, floor) {
+  const key = `${building}/${floor}`;
+  if (!floorDataCache.has(key)) {
+    const floorPromise = (async () => {
+      try {
+        const res = await fetch(`${dataRoot}/floors/${pathPart(building)}/${pathPart(floor)}.json`);
+        if (!res.ok) throw new Error(`Cannot load floor data (${res.status})`);
         return await res.json();
-      })();
-    }
-    return dataIndexPromise;
+      } catch {
+        return null;
+      }
+    })();
+    floorDataCache.set(key, floorPromise);
   }
+  return floorDataCache.get(key);
+}
 
-  function sortNatural(values) {
-    return [...values].sort((a, b) => a.localeCompare(b, 'uk', { numeric: true }));
-  }
+async function loadRoomData(building, floor, room) {
+  const floorData = await loadFloorData(building, floor);
+  if (!floorData?.rooms || !Array.isArray(floorData.rooms[room])) return [];
+  return floorData.rooms[room];
+}
 
-  async function getBuildingList() {
-    try {
-      const index = await loadDataIndex();
-      return sortNatural(index.buildings.map(b => b.id));
-    } catch {
-      return [];
-    }
-  }
-
-  async function getFloors(building) {
-    try {
-      const index = await loadDataIndex();
-      const buildingEntry = index.buildings.find(b => b.id === building);
-      if (!buildingEntry) return [];
-      return sortNatural(buildingEntry.floors.map(f => f.id));
-    } catch {
-      return [];
-    }
-  }
-
-  async function getRooms(building, floor) {
-    try {
-      const index = await loadDataIndex();
-      const buildingEntry = index.buildings.find(b => b.id === building);
-      const floorEntry = buildingEntry?.floors.find(f => f.id === floor);
-      if (!floorEntry) return [];
-      return sortNatural(floorEntry.rooms);
-    } catch {
-      return [];
-    }
-  }
-  
-  function getPairTime(n) {
-    return pairTimes[n] || '';
-  }
-  
-  function getWeekLabel(weekType) {
-    if (weekType === 'чисельник') return 'Ч';
-    if (weekType === 'знаменник') return 'З';
-    return '';
-  }
-
-  function getWeekClass(weekType) {
-    if (weekType === 'чисельник') return 'numerator';
-    if (weekType === 'знаменник') return 'denominator';
-    return '';
-  }
-  
-  async function loadFloorData(building, floor) {
-    const key = `${building}/${floor}`;
-    if (!floorDataCache.has(key)) {
-      const floorPromise = (async () => {
-        try {
-          const res = await fetch(`${dataRoot}/floors/${pathPart(building)}/${pathPart(floor)}.json`);
-          if (!res.ok) throw new Error(`Cannot load floor data (${res.status})`);
-          return await res.json();
-        } catch {
-          return null;
-        }
-      })();
-      floorDataCache.set(key, floorPromise);
-    }
-    return floorDataCache.get(key);
-  }
-
-  async function loadRoomData(building, floor, room) {
-    const floorData = await loadFloorData(building, floor);
-    if (!floorData?.rooms || !Array.isArray(floorData.rooms[room])) return [];
-    return floorData.rooms[room];
-  }
-  
-  // ===================== Режим 1 =====================
+// ===================== Режим 1 =====================
 async function showMode1() {
   controls.innerHTML = '';
   output.innerHTML = '';
@@ -208,13 +216,19 @@ async function showMode1() {
 
   const locationGroup = document.createElement('div');
   locationGroup.className = 'field-group two-cols';
-  locationGroup.innerHTML = '<p class="group-label">Локація</p>';
+  const locationLabel = document.createElement('p');
+  locationLabel.className = 'group-label';
+  locationLabel.textContent = 'Локація';
+  locationGroup.append(locationLabel);
   locationGroup.append(labelWrap('Корпус', buildingSelect));
   locationGroup.append(labelWrap('Поверх', floorSelect));
 
   const timeGroup = document.createElement('div');
   timeGroup.className = 'field-group';
-  timeGroup.innerHTML = '<p class="group-label">Час</p>';
+  const timeLabel = document.createElement('p');
+  timeLabel.className = 'group-label';
+  timeLabel.textContent = 'Час';
+  timeGroup.append(timeLabel);
   timeGroup.append(labelWrap('День', daySelect));
 
   const actions = document.createElement('div');
@@ -242,8 +256,12 @@ async function showMode1() {
     const floor = floorSelect.value;
     const day = daySelect.value;
     if (!building || !day) return;
-
-    await renderFreeBusy(building, floor, day);
+    showLoading();
+    try {
+      await renderFreeBusy(building, floor, day);
+    } catch (err) {
+      showError();
+    }
   });
 
   controls.appendChild(form);
@@ -253,65 +271,136 @@ async function showMode1() {
     output.appendChild(buildEmptyState('Дані не згенеровано. Запустіть scripts/build_static_data.py'));
   }
 }
-  
+
 async function renderFreeBusy(building, floor, selectedDay) {
-    let floors = floor ? [floor] : await getFloors(building);
-    const table = document.createElement('table');
-    table.classList.add('availability-table');
-    table.innerHTML = '<thead><tr><th>Аудиторія</th><th>Пара</th><th>Статус</th><th>Інформація</th></tr></thead><tbody></tbody>';
-    const tbody = table.querySelector('tbody');
-  
-    for (const fl of floors) {
+  const floors = floor ? [floor] : await getFloors(building);
+
+  // Load all floor data in parallel
+  const floorRoomPairs = await Promise.all(
+    floors.map(async fl => {
       const rooms = await getRooms(building, fl);
-      for (const room of rooms) {
-        const data = await loadRoomData(building, fl, room);
-        let entries = data.filter(e => e.День === selectedDay);
-        entries = filterByWeek(entries);
-        const allPairs = Object.keys(pairTimes).map(n => parseInt(n));
-  
-        allPairs.forEach((p, index) => {
-          const entry = entries.find(e => e.Пара === p);
-          const row = document.createElement('tr');
-  
-          if (index === 0) {
-            row.innerHTML += `<td rowspan="${allPairs.length}">${room}</td>`;
+      const roomData = await Promise.all(rooms.map(room => loadRoomData(building, fl, room)));
+      return rooms.map((room, i) => ({ fl, room, data: roomData[i] }));
+    })
+  );
+
+  const table = document.createElement('table');
+  table.classList.add('availability-table');
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  ['Аудиторія', 'Пара', 'Статус', 'Інформація'].forEach(text => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+
+  const allPairNums = Object.keys(pairTimes).map(n => parseInt(n));
+
+  for (const floorEntries of floorRoomPairs) {
+    for (const { room, data } of floorEntries) {
+      let entries = data.filter(e => e.День === selectedDay);
+      entries = filterByWeek(entries);
+
+      const fragment = document.createDocumentFragment();
+      allPairNums.forEach((p, index) => {
+        const entry = entries.find(e => e.Пара === p);
+        const row = document.createElement('tr');
+
+        if (index === 0) {
+          const roomCell = document.createElement('td');
+          roomCell.rowSpan = allPairNums.length;
+          roomCell.textContent = room;
+          row.appendChild(roomCell);
+        }
+
+        const statusClass = entry ? 'cell-busy' : 'cell-free';
+        const statusText = entry ? 'Зайнято' : 'Вільно';
+
+        const pairCell = document.createElement('td');
+        pairCell.className = statusClass;
+        pairCell.textContent = `${p} (${getPairTime(p)})`;
+        row.appendChild(pairCell);
+
+        const statusCell = document.createElement('td');
+        statusCell.className = statusClass;
+        statusCell.textContent = statusText;
+        row.appendChild(statusCell);
+
+        const infoCell = document.createElement('td');
+        infoCell.className = statusClass;
+        if (entry) {
+          const title = document.createElement('div');
+          title.className = 'cell-title';
+          title.textContent = entry.Предмет;
+          const meta1 = document.createElement('div');
+          meta1.className = 'cell-meta';
+          meta1.textContent = entry.Викладач || '—';
+          const meta2 = document.createElement('div');
+          meta2.className = 'cell-meta';
+          meta2.textContent = `${entry['Тип заняття']} · ${entry.Група}`;
+          const weekClass = getWeekClass(entry['Тип тижня']);
+          const weekLabel = getWeekLabel(entry['Тип тижня']);
+          if (weekLabel) {
+            const badge = document.createElement('span');
+            badge.className = `week-badge ${weekClass}`;
+            badge.textContent = weekLabel;
+            badge.title = entry['Тип тижня'];
+            meta2.appendChild(badge);
           }
-  
-          const statusClass = entry ? 'cell-busy' : 'cell-free';
-          const statusText = entry ? 'Зайнято' : 'Вільно';
-
-          const weekInfo = entry ? ` <span class="week-badge ${getWeekClass(entry['Тип тижня'])}">${getWeekLabel(entry['Тип тижня'])}</span>` : '';
-  
-          const info = entry
-            ? `<div class="cell-title">${entry.Предмет}</div><div class="cell-meta">${entry.Викладач || '—'}</div><div class="cell-meta">${entry['Тип заняття']} · ${entry.Група}${weekInfo}</div>`
-            : '<div class="cell-title free">Вільно</div>';
-  
-          row.innerHTML += `
-            <td class="${statusClass}">${p} (${getPairTime(p)})</td>
-            <td class="${statusClass}">${statusText}</td>
-            <td class="${statusClass}">${info}</td>
-          `;
-  
-          tbody.appendChild(row);
-        });
-      }
+          infoCell.append(title, meta1, meta2);
+        } else {
+          const freeTitle = document.createElement('div');
+          freeTitle.className = 'cell-title free';
+          freeTitle.textContent = 'Вільно';
+          infoCell.appendChild(freeTitle);
+        }
+        row.appendChild(infoCell);
+        fragment.appendChild(row);
+      });
+      tbody.appendChild(fragment);
     }
-  
-    output.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'table-wrap';
-    wrap.appendChild(table);
-    output.appendChild(tbody.children.length ? wrap : buildEmptyState());
   }
 
-  function buildEmptyState(message = 'Немає даних') {
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    empty.innerHTML = `${message}<br><button type="button" class="ghost" onclick="location.reload()">Спробувати ще</button>`;
-    return empty;
-  }
-  
-  // ===================== Режим 2 =====================
+  table.appendChild(tbody);
+  output.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap';
+  wrap.appendChild(table);
+  output.appendChild(tbody.children.length ? wrap : buildEmptyState());
+}
+
+function buildEmptyState(message = 'Немає даних') {
+  const empty = document.createElement('div');
+  empty.className = 'empty-state';
+  const text = document.createTextNode(message);
+  empty.appendChild(text);
+  empty.appendChild(document.createElement('br'));
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ghost';
+  button.textContent = 'Спробувати ще';
+  button.addEventListener('click', () => location.reload());
+  empty.appendChild(button);
+  return empty;
+}
+
+function showLoading() {
+  output.innerHTML = '';
+  const el = document.createElement('div');
+  el.className = 'empty-state';
+  el.textContent = 'Завантаження...';
+  output.appendChild(el);
+}
+
+function showError() {
+  output.innerHTML = '';
+  output.appendChild(buildEmptyState('Помилка завантаження даних.'));
+}
+
+// ===================== Режим 2 =====================
 async function showMode2() {
   controls.innerHTML = '';
   output.innerHTML = '';
@@ -323,7 +412,10 @@ async function showMode2() {
 
   const locationGroup = document.createElement('div');
   locationGroup.className = 'field-group';
-  locationGroup.innerHTML = '<p class="group-label">Локація</p>';
+  const locationLabel = document.createElement('p');
+  locationLabel.className = 'group-label';
+  locationLabel.textContent = 'Локація';
+  locationGroup.append(locationLabel);
   locationGroup.append(labelWrap('Корпус', buildingSelect));
   locationGroup.append(labelWrap('Поверх', floorSelect));
   locationGroup.append(labelWrap('Аудиторія', roomSelect));
@@ -348,118 +440,176 @@ async function showMode2() {
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    await renderCalendar(buildingSelect.value, floorSelect.value, roomSelect.value);
+    showLoading();
+    try {
+      await renderCalendar(buildingSelect.value, floorSelect.value, roomSelect.value);
+    } catch (err) {
+      showError();
+    }
   });
-  
-    controls.appendChild(form);
-    await populateBuildings(buildingSelect, floorSelect, roomSelect);
-    if (buildingSelect.options.length === 0) {
-      output.innerHTML = '';
-      output.appendChild(buildEmptyState('Дані не згенеровано. Запустіть scripts/build_static_data.py'));
-    }
-  }
-  
-async function renderCalendar(building, floor, room) {
-    const data = await loadRoomData(building, floor, room);
-    let filteredData = filterByWeek(data);
-    const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-    const table = document.createElement('table');
-    table.classList.add('availability-table');
-    table.innerHTML = '<thead><tr><th>Пара</th>' + days.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody></tbody>';
-    const tbody = table.querySelector('tbody');
 
-    const allPairs = Object.keys(pairTimes).map(n => parseInt(n));
-
-    for (let p of allPairs) {
-      const row = document.createElement('tr');
-      row.innerHTML = `<td>${p}<br><small>${getPairTime(p)}</small></td>` +
-        days.map(day => {
-          const item = filteredData.find(e => e.День === day && e.Пара === p);
-          const weekBadge = item ? ` <span class="week-badge ${getWeekClass(item['Тип тижня'])}">${getWeekLabel(item['Тип тижня'])}</span>` : '';
-          return `<td class="${item ? 'cell-busy' : 'cell-free'}">` +
-            (item ? `<div class="cell-title">${item.Предмет}</div><div class="cell-meta">${item.Викладач || '—'}</div><div class="cell-meta">${item['Тип заняття']} · ${item.Група}${weekBadge}</div>` : '<div class="cell-title free">Вільно</div>') +
-            '</td>';
-        }).join('');
-      tbody.appendChild(row);
-    }
-  
+  controls.appendChild(form);
+  await populateBuildings(buildingSelect, floorSelect, roomSelect);
+  if (buildingSelect.options.length === 0) {
     output.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'table-wrap';
-    wrap.appendChild(table);
-    output.appendChild(tbody.children.length ? wrap : buildEmptyState());
+    output.appendChild(buildEmptyState('Дані не згенеровано. Запустіть scripts/build_static_data.py'));
   }
-  
-  // ===================== Select =====================
+}
+
+async function renderCalendar(building, floor, room) {
+  const data = await loadRoomData(building, floor, room);
+  const filteredData = filterByWeek(data);
+  const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+  const table = document.createElement('table');
+  table.classList.add('availability-table');
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  ['Пара', ...days].forEach(text => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+
+  const allPairs = Object.keys(pairTimes).map(n => parseInt(n));
+  const fragment = document.createDocumentFragment();
+
+  for (const p of allPairs) {
+    const row = document.createElement('tr');
+
+    const pairCell = document.createElement('td');
+    pairCell.textContent = `${p}`;
+    const small = document.createElement('small');
+    small.textContent = getPairTime(p);
+    pairCell.appendChild(document.createElement('br'));
+    pairCell.appendChild(small);
+    row.appendChild(pairCell);
+
+    for (const day of days) {
+      const item = filteredData.find(e => e.День === day && e.Пара === p);
+      const cell = document.createElement('td');
+      cell.className = item ? 'cell-busy' : 'cell-free';
+
+      if (item) {
+        const title = document.createElement('div');
+        title.className = 'cell-title';
+        title.textContent = item.Предмет;
+        const meta1 = document.createElement('div');
+        meta1.className = 'cell-meta';
+        meta1.textContent = item.Викладач || '—';
+        const meta2 = document.createElement('div');
+        meta2.className = 'cell-meta';
+        meta2.textContent = `${item['Тип заняття']} · ${item.Група}`;
+        const weekClass = getWeekClass(item['Тип тижня']);
+        const weekLabel = getWeekLabel(item['Тип тижня']);
+        if (weekLabel) {
+          const badge = document.createElement('span');
+          badge.className = `week-badge ${weekClass}`;
+          badge.textContent = weekLabel;
+          badge.title = item['Тип тижня'];
+          meta2.appendChild(badge);
+        }
+        cell.append(title, meta1, meta2);
+      } else {
+        const freeTitle = document.createElement('div');
+        freeTitle.className = 'cell-title free';
+        freeTitle.textContent = 'Вільно';
+        cell.appendChild(freeTitle);
+      }
+      row.appendChild(cell);
+    }
+    fragment.appendChild(row);
+  }
+  tbody.appendChild(fragment);
+  table.appendChild(tbody);
+
+  output.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap';
+  wrap.appendChild(table);
+  output.appendChild(tbody.children.length ? wrap : buildEmptyState());
+}
+
+// ===================== Select =====================
 function createSelect(id, options = []) {
   const select = document.createElement('select');
   select.id = id;
   if (options.length) {
-      options.forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = typeof o === 'object' ? o.value : o;
-        opt.textContent = typeof o === 'object' ? o.text : o;
-        select.appendChild(opt);
-      });
-    }
-    return select;
+    options.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = typeof o === 'object' ? o.value : o;
+      opt.textContent = typeof o === 'object' ? o.text : o;
+      select.appendChild(opt);
+    });
   }
-  
+  return select;
+}
+
 function labelWrap(text, select) {
   const label = document.createElement('label');
   label.textContent = text;
+  label.htmlFor = select.id;
   label.appendChild(select);
   return label;
 }
-  
-  async function populateBuildings(buildingSelect, floorSelect, roomSelect = null) {
-    const buildings = await getBuildingList();
-    if (buildings.length === 0) return;
 
-    buildingSelect.innerHTML = buildings.map(b => `<option value="${b}">${b}</option>`).join('');
-    await populateFloors(buildings[0], floorSelect, roomSelect);
+async function populateBuildings(buildingSelect, floorSelect, roomSelect = null) {
+  const buildings = await getBuildingList();
+  if (buildings.length === 0) return;
 
-    buildingSelect.onchange = () => {
-      const selected = buildingSelect.value;
-      if (selected) {
-        populateFloors(selected, floorSelect, roomSelect);
+  buildingSelect.innerHTML = buildings.map(b => `<option value="${b}">${b}</option>`).join('');
+  await populateFloors(buildings[0], floorSelect, roomSelect);
+
+  buildingSelect.onchange = () => {
+    const selected = buildingSelect.value;
+    if (selected) {
+      populateFloors(selected, floorSelect, roomSelect);
+    }
+  };
+}
+
+async function populateFloors(building, floorSelect, roomSelect = null) {
+  if (!building) return;
+  const floors = await getFloors(building);
+  floorSelect.disabled = floors.length === 0;
+  if (floors.length === 0) return;
+
+  floorSelect.innerHTML = floors.map(f => `<option value="${f}">${f}</option>`).join('');
+
+  if (roomSelect) {
+    await populateRooms(building, floors[0], roomSelect);
+    floorSelect.onchange = () => {
+      const selectedFloor = floorSelect.value;
+      if (selectedFloor) {
+        populateRooms(building, selectedFloor, roomSelect);
       }
     };
   }
+}
 
-  async function populateFloors(building, floorSelect, roomSelect = null) {
-    if (!building) return;
-    const floors = await getFloors(building);
-    floorSelect.disabled = floors.length === 0;
-    if (floors.length === 0) return;
+async function populateRooms(building, floor, roomSelect) {
+  const rooms = await getRooms(building, floor);
+  roomSelect.disabled = rooms.length === 0;
+  roomSelect.innerHTML = rooms.map(r => `<option value="${r}">${r}</option>`).join('');
+}
 
-    floorSelect.innerHTML = floors.map(f => `<option value="${f}">${f}</option>`).join('');
-
-    if (roomSelect) {
-      await populateRooms(building, floors[0], roomSelect);
-      floorSelect.onchange = () => {
-        const selectedFloor = floorSelect.value;
-        if (selectedFloor) {
-          populateRooms(building, selectedFloor, roomSelect);
-        }
-      };
-    }
-  }
-
-  async function populateRooms(building, floor, roomSelect) {
-    const rooms = await getRooms(building, floor);
-    roomSelect.disabled = rooms.length === 0;
-    roomSelect.innerHTML = rooms.map(r => `<option value="${r}">${r}</option>`).join('');
-  }
-  
 // ===================== Розклад пар =====================
 function renderStaticSchedule() {
   const scheduleBody = document.getElementById('schedule-body');
+  const fragment = document.createDocumentFragment();
   Object.entries(pairTimes).forEach(([num, time]) => {
     const row = document.createElement('tr');
-    row.innerHTML = `<td>${num}</td><td>${time}</td>`;
-    scheduleBody.appendChild(row);
+    const numCell = document.createElement('td');
+    numCell.textContent = num;
+    const timeCell = document.createElement('td');
+    timeCell.textContent = time;
+    row.append(numCell, timeCell);
+    fragment.appendChild(row);
   });
+  scheduleBody.appendChild(fragment);
 }
 
 // ===================== Accordion state =====================
@@ -472,7 +622,12 @@ function restoreScheduleAccordion() {
   body.hidden = !isOpen;
   trigger.setAttribute('aria-expanded', String(isOpen));
   trigger.addEventListener('click', () => toggleAccordion(trigger, body));
-  trigger.addEventListener('keypress', (e) => { if (e.key === 'Enter') toggleAccordion(trigger, body); });
+  trigger.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleAccordion(trigger, body);
+    }
+  });
 }
 
 function toggleAccordion(trigger, body) {
