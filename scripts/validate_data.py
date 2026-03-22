@@ -4,6 +4,7 @@
 Validates the generated data/ directory before it is pushed to gh_pages.
 Exits with code 1 if any check fails, so the CI pipeline aborts the publish step.
 """
+
 from __future__ import annotations
 
 import json
@@ -66,7 +67,9 @@ def validate(index: dict) -> list[str]:
                     with floor_path.open(encoding="utf-8") as fh:
                         json.load(fh)
                 except json.JSONDecodeError as exc:
-                    errors.append(f"Corrupt floor file {floor_path.relative_to(ROOT)}: {exc}")
+                    errors.append(
+                        f"Corrupt floor file {floor_path.relative_to(ROOT)}: {exc}"
+                    )
 
     return errors
 

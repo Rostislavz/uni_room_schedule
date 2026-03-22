@@ -28,4 +28,4 @@ python scripts/build_static_data.py
 
 Inspired by [lpnu.pp.ua](https://lpnu.pp.ua/)
 
-Please, star the great work of https://github.com/cupoftea4/timetable 
+Please, star the great work of https://github.com/cupoftea4/timetable

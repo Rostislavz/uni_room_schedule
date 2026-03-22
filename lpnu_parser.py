@@ -3,6 +3,7 @@ HTML parsing utilities for LPNU timetable pages.
 Ported from the React implementation in ../timetable/src/utils/data/Parser.ts
 with adaptations for Python + BeautifulSoup.
 """
+
 from __future__ import annotations
 
 import logging
@@ -128,8 +129,12 @@ class TimetableParser:
             if not isinstance(child, Tag):
                 continue
 
-            if child.name == "span" and "view-grouping-header" in child.get("class", []):
-                current_day_abbr, current_date = self._parse_day_or_date(child.get_text(strip=True))
+            if child.name == "span" and "view-grouping-header" in child.get(
+                "class", []
+            ):
+                current_day_abbr, current_date = self._parse_day_or_date(
+                    child.get_text(strip=True)
+                )
             elif child.name == "h3":
                 try:
                     current_pair = int(child.get_text(strip=True))
@@ -138,7 +143,11 @@ class TimetableParser:
             elif child.get("class") and "stud_schedule" in child.get("class", []):
                 if current_pair is None or not current_day_abbr:
                     raise ValueError("Encountered schedule block without day/pair")
-                lessons.extend(self._parse_pair(child, current_day_abbr, current_pair, current_date))
+                lessons.extend(
+                    self._parse_pair(
+                        child, current_day_abbr, current_pair, current_date
+                    )
+                )
             else:
                 # tolerate unknown nodes instead of failing hard
                 continue
@@ -225,7 +234,9 @@ class TimetableParser:
                     link = node.find("a")
                     href = link.get("href") if link else None
                     if href:
-                        urls.append(href if href.startswith("http") else f"https://{href}")
+                        urls.append(
+                            href if href.startswith("http") else f"https://{href}"
+                        )
                 else:
                     text = node.get_text(strip=True)
                     if text:
@@ -247,7 +258,12 @@ class TimetableParser:
         if len(texts) > 2 and not location:
             location = texts[2]
 
-        return {"subject": subject, "lecturer": lecturer, "location": location, "urls": urls}
+        return {
+            "subject": subject,
+            "lecturer": lecturer,
+            "location": location,
+            "urls": urls,
+        }
 
     def _guess_type(self, text: str):
         lower = text.lower()

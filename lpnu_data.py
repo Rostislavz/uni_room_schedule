@@ -1,4 +1,5 @@
 """HTTP client for LPNU timetable endpoints."""
+
 from __future__ import annotations
 
 import atexit
@@ -10,14 +11,14 @@ import time
 from typing import Optional
 import requests
 
-logger = logging.getLogger(__name__)
-
 from lpnu_parser import (
     parse_groups,
     parse_institutes,
     parse_partial_groups,
     parse_timetable,
 )
+
+logger = logging.getLogger(__name__)
 
 BASE_STUDENTS = "https://student.lpnu.ua/"
 BASE_STAFF = "https://staff.lpnu.ua/"
@@ -55,10 +56,12 @@ def _get_session() -> requests.Session:
     session = getattr(_THREAD_LOCAL, "session", None)
     if session is None:
         session = requests.Session()
-        session.headers.update({
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        })
+        session.headers.update(
+            {
+                "User-Agent": USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            }
+        )
         _THREAD_LOCAL.session = session
         with _SESSIONS_LOCK:
             _ALL_SESSIONS.append(session)
@@ -78,6 +81,7 @@ def _close_all_sessions() -> None:
 atexit.register(_close_all_sessions)
 
 # Helpers
+
 
 def _looks_invalid_lpnu_page(text: str) -> bool:
     # LPNU may return an HTML shell without timetable/select controls when throttled.
@@ -106,8 +110,14 @@ def _fetch_html(url: str, params: Optional[dict[str, str]] = None) -> str:
             return text
         except Exception as exc:  # noqa: PERF203 (intentional retry)
             last_err = exc
-            wait = 0.5 * (2 ** i) + random.random() * 0.3
-            logger.warning("Fetch attempt %d/%d failed: %s — retrying in %.1fs", i + 1, attempts, exc, wait)
+            wait = 0.5 * (2**i) + random.random() * 0.3
+            logger.warning(
+                "Fetch attempt %d/%d failed: %s — retrying in %.1fs",
+                i + 1,
+                attempts,
+                exc,
+                wait,
+            )
             time.sleep(wait)
     raise last_err  # type: ignore[misc]
 
@@ -131,6 +141,7 @@ def _duration_candidates(explicit: Optional[str]) -> list[Optional[str]]:
         if dur not in candidates:
             candidates.append(dur)
     return candidates
+
 
 def get_groups(institute: str = "All", semester: str = "2"):
     params = {
@@ -216,7 +227,9 @@ def get_partial_timetable(group: str, semester_half: int, semester: str = "2"):
                 saw_no_timetable = True
 
     if saw_no_timetable:
-        raise ValueError(f"No partial timetable content found for group {group} (half {semester_half})")
+        raise ValueError(
+            f"No partial timetable content found for group {group} (half {semester_half})"
+        )
     if last_err:
         raise last_err
     raise RuntimeError("Failed to fetch partial timetable")

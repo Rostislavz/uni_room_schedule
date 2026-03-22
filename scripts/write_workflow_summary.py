@@ -33,26 +33,33 @@ def main():
     index_summary = load_json(os.environ.get("INDEX_SUMMARY_PATH", ""))
 
     institutes = groups_fetch_summary.get("institutes", [])
-    institute_names = [item.get("institute", "") for item in institutes if item.get("institute")]
+    institute_names = [
+        item.get("institute", "") for item in institutes if item.get("institute")
+    ]
     failed_institutes = groups_fetch_summary.get("failed_institutes", [])
 
     totals = batch_summary.get("totals", {})
     processed_groups = int(totals.get("processed_groups", 0))
-    success_groups = int(totals.get("success", int(totals.get("ok", 0)) + int(totals.get("skip", 0))))
-    failed_groups = int(totals.get("failed", int(totals.get("warn", 0)) + int(totals.get("err", 0))))
+    success_groups = int(
+        totals.get("success", int(totals.get("ok", 0)) + int(totals.get("skip", 0)))
+    )
+    failed_groups = int(
+        totals.get("failed", int(totals.get("warn", 0)) + int(totals.get("err", 0)))
+    )
     failed_fetch_groups = totals.get("failed_fetch_groups", [])
     failed_update_groups = totals.get("failed_update_groups", [])
 
     rooms_count = (
-        index_summary.get("totals", {}).get("rooms")
-        if index_summary
-        else None
+        index_summary.get("totals", {}).get("rooms") if index_summary else None
     )
     rooms_text = str(rooms_count) if rooms_count is not None else "Unknown"
 
     rows = [
         ("Processed institutes", f"{len(institute_names)}"),
-        ("Institutes list", ", ".join(institute_names) if institute_names else "Unknown"),
+        (
+            "Institutes list",
+            ", ".join(institute_names) if institute_names else "Unknown",
+        ),
         ("Processed groups (total)", str(processed_groups)),
         ("Groups success / failed", f"{success_groups} / {failed_groups}"),
         ("Processed rooms", rooms_text),
