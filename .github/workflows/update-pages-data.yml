@@ -24,7 +24,7 @@ concurrency:
 jobs:
   refresh-and-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
     env:
       LPNU_INSTITUTE: ${{ inputs.institute || 'All' }}
       LPNU_FORCE_REDOWNLOAD: ${{ inputs.force_redownload && '1' || '0' }}

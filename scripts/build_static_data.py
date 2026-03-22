@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -116,6 +117,7 @@ def build() -> None:
 
     index_payload = {
         "version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "buildings": buildings_payload,
         "totals": {
             "buildings": len(buildings_payload),

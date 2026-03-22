@@ -1,8 +1,8 @@
 /data/index.json
-  Cache-Control: public, max-age=300
+  Cache-Control: public, max-age=86400, stale-while-revalidate=3600
 
 /data/floors/*
-  Cache-Control: public, max-age=86400
+  Cache-Control: public, max-age=86400, stale-while-revalidate=3600
 
 /script.js
   Cache-Control: public, max-age=3600
