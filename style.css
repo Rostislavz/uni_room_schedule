@@ -14,6 +14,11 @@
   --danger: #991b1b;
   --radius: 16px;
   --shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
+  /* Cell status colours — defined once, used everywhere */
+  --cell-busy-bg: #ffe0e0;
+  --cell-busy-text: #b42318;
+  --cell-free-bg: #e7f7e7;
+  --cell-free-text: #186a3b;
 }
 
 * { box-sizing: border-box; }
@@ -315,6 +320,13 @@ form button {
   min-width: 960px;
 }
 
+@media (max-width: 768px) {
+  .availability-table {
+    min-width: 600px;
+    font-size: 11px;
+  }
+}
+
 .availability-table thead th {
   position: sticky;
   top: 0;
@@ -353,13 +365,13 @@ table td:first-child {
 table tr:nth-child(even) td { background: transparent; }
 
 .cell-busy {
-  background-color: #ffe0e0;
-  color: #b42318;
+  background-color: var(--cell-busy-bg);
+  color: var(--cell-busy-text);
 }
 
 .cell-free {
-  background-color: #e7f7e7;
-  color: #186a3b;
+  background-color: var(--cell-free-bg);
+  color: var(--cell-free-text);
 }
 
 .week-badge {
@@ -412,7 +424,22 @@ table tr:nth-child(even) td { background: transparent; }
 }
 
 .with-icon { display: inline-flex; gap: 8px; align-items: center; }
-.accordion-trigger { cursor: pointer; }
+.accordion-trigger {
+  cursor: pointer;
+  /* Reset button appearance when used as a <button> element */
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+}
+.accordion-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 .accordion-caret { font-size: 14px; color: var(--muted); }
 
 .empty-state, .error-state {
