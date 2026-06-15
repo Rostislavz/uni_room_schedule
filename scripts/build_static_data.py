@@ -19,9 +19,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ROOM_SOURCE_DIR = ROOT / "аудиторії"
+EXAM_SOURCE_DIR = ROOT / "аудиторії_exam"
 DATA_DIR = ROOT / "data"
 FLOORS_DIR = DATA_DIR / "floors"
+EXAM_DATA_DIR = DATA_DIR / "exams"
+EXAM_FLOORS_DIR = EXAM_DATA_DIR / "floors"
 INDEX_PATH = DATA_DIR / "index.json"
+EXAM_INDEX_PATH = EXAM_DATA_DIR / "index.json"
 GROUP_END_DATES_SRC = ROOT / "group_end_dates.json"
 GROUP_END_DATES_DST = DATA_DIR / "group_end_dates.json"
 
@@ -148,5 +152,83 @@ def build() -> None:
     print(f"Rooms: {index_payload['totals']['rooms']}")
 
 
+def build_exams() -> None:
+    if not EXAM_SOURCE_DIR.exists():
+        print(f"No exam source directory ({EXAM_SOURCE_DIR.name}), skipping exam data")
+        return
+
+    if EXAM_DATA_DIR.exists():
+        shutil.rmtree(EXAM_DATA_DIR)
+    EXAM_FLOORS_DIR.mkdir(parents=True, exist_ok=True)
+
+    buildings_payload = []
+    total_floors = 0
+    total_rooms = 0
+
+    for building_dir in sorted_dirs(EXAM_SOURCE_DIR):
+        floors_payload = []
+        building_room_count = 0
+
+        for floor_dir in sorted_dirs(building_dir):
+            room_files = sorted_room_files(floor_dir)
+            if not room_files:
+                continue
+
+            rooms_payload = []
+            rooms_map = {}
+
+            for room_file in room_files:
+                room_id = room_file.stem
+                rooms_payload.append(room_id)
+                rooms_map[room_id] = load_json(room_file)
+
+            floor_payload = {
+                "building": building_dir.name,
+                "floor": floor_dir.name,
+                "rooms": rooms_map,
+            }
+            write_json(
+                EXAM_FLOORS_DIR / building_dir.name / f"{floor_dir.name}.json",
+                floor_payload,
+            )
+
+            floors_payload.append(
+                {
+                    "id": floor_dir.name,
+                    "rooms": rooms_payload,
+                }
+            )
+            building_room_count += len(rooms_payload)
+            total_rooms += len(rooms_payload)
+            total_floors += 1
+
+        if floors_payload:
+            buildings_payload.append(
+                {
+                    "id": building_dir.name,
+                    "floors": floors_payload,
+                    "roomCount": building_room_count,
+                }
+            )
+
+    index_payload = {
+        "version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "buildings": buildings_payload,
+        "totals": {
+            "buildings": len(buildings_payload),
+            "floors": total_floors,
+            "rooms": total_rooms,
+        },
+    }
+    write_json(EXAM_INDEX_PATH, index_payload)
+
+    print(f"Built {EXAM_INDEX_PATH.relative_to(ROOT)}")
+    print(f"Exam buildings: {index_payload['totals']['buildings']}")
+    print(f"Exam floors: {index_payload['totals']['floors']}")
+    print(f"Exam rooms: {index_payload['totals']['rooms']}")
+
+
 if __name__ == "__main__":
     build()
+    build_exams()

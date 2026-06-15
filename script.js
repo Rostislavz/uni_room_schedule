@@ -41,15 +41,207 @@ const dataRoot = (document.querySelector('meta[name="app-data-root"]')?.content 
 );
 let dataIndexPromise = null;
 
+// ===================== Exam data =====================
+const examFloorDataCache = new Map();
+let examDataIndexPromise = null;
+
+async function loadExamDataIndex() {
+  if (!examDataIndexPromise) {
+    examDataIndexPromise = (async () => {
+      try {
+        const res = await fetch(`${dataRoot}/exams/index.json`, { cache: 'no-cache' });
+        if (!res.ok) return { buildings: [], totals: {} };
+        return await res.json();
+      } catch {
+        return { buildings: [], totals: {} };
+      }
+    })();
+  }
+  return examDataIndexPromise;
+}
+
+async function getExamBuildingList() {
+  try {
+    const index = await loadExamDataIndex();
+    return sortNatural(index.buildings.map((b) => b.id));
+  } catch {
+    return [];
+  }
+}
+
+async function getExamFloors(building) {
+  try {
+    const index = await loadExamDataIndex();
+    const b = index.buildings.find((b) => b.id === building);
+    if (!b) return [];
+    return sortNatural(b.floors.map((f) => f.id));
+  } catch {
+    return [];
+  }
+}
+
+async function getExamRooms(building, floor) {
+  try {
+    const index = await loadExamDataIndex();
+    const b = index.buildings.find((b) => b.id === building);
+    const f = b?.floors.find((f) => f.id === floor);
+    if (!f) return [];
+    return sortNatural(f.rooms);
+  } catch {
+    return [];
+  }
+}
+
+async function loadExamFloorData(building, floor) {
+  const key = `exam/${building}/${floor}`;
+  const cached = examFloorDataCache.get(key);
+  if (cached && Date.now() - cached.timestamp > CACHE_TTL_MS) {
+    examFloorDataCache.delete(key);
+  }
+  if (!examFloorDataCache.has(key)) {
+    const promise = (async () => {
+      try {
+        const res = await fetch(
+          `${dataRoot}/exams/floors/${pathPart(building)}/${pathPart(floor)}.json`,
+        );
+        if (!res.ok) throw new Error(`Cannot load exam floor data (${res.status})`);
+        return await res.json();
+      } catch {
+        return null;
+      }
+    })();
+    examFloorDataCache.set(key, { promise, timestamp: Date.now() });
+  }
+  return examFloorDataCache.get(key).promise;
+}
+
+async function loadExamRoomData(building, floor, room) {
+  const floorData = await loadExamFloorData(building, floor);
+  if (!floorData?.rooms || !Array.isArray(floorData.rooms[room])) return [];
+  return floorData.rooms[room];
+}
+
+// ===================== Week navigation =====================
+function getMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function formatShortDate(date) {
+  return date.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' });
+}
+
+function formatWeekRange(monday) {
+  const saturday = addDays(monday, 5);
+  return `${formatShortDate(monday)} – ${formatShortDate(saturday)}`;
+}
+
+function isoDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function filterByWeekDates(entries, monday) {
+  const start = isoDate(monday);
+  const end = isoDate(addDays(monday, 6));
+  return entries.filter((e) => {
+    const d = e.Дата;
+    return d && d >= start && d <= end;
+  });
+}
+
+function createWeekNav(initialMonday, onChange) {
+  let currentMonday = new Date(initialMonday);
+
+  const nav = document.createElement('div');
+  nav.className = 'week-nav';
+
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'week-nav__btn';
+  prevBtn.textContent = '←';
+  prevBtn.title = 'Попередній тиждень';
+
+  const label = document.createElement('span');
+  label.className = 'week-nav__label';
+  label.textContent = formatWeekRange(currentMonday);
+
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'week-nav__btn';
+  nextBtn.textContent = '→';
+  nextBtn.title = 'Наступний тиждень';
+
+  prevBtn.addEventListener('click', () => {
+    currentMonday = addDays(currentMonday, -7);
+    label.textContent = formatWeekRange(currentMonday);
+    onChange(currentMonday);
+  });
+
+  nextBtn.addEventListener('click', () => {
+    currentMonday = addDays(currentMonday, 7);
+    label.textContent = formatWeekRange(currentMonday);
+    onChange(currentMonday);
+  });
+
+  nav.append(prevBtn, label, nextBtn);
+  return { element: nav, getMonday: () => new Date(currentMonday) };
+}
+
+// ===================== Exam populate helpers =====================
+async function populateExamBuildings(buildingSelect, floorSelect, roomSelect = null) {
+  const buildings = await getExamBuildingList();
+  if (!buildings.length) return;
+  buildingSelect.innerHTML = buildings.map((b) => `<option value="${b}">${b}</option>`).join('');
+  await populateExamFloors(buildings[0], floorSelect, roomSelect);
+  buildingSelect.onchange = () => {
+    if (buildingSelect.value) populateExamFloors(buildingSelect.value, floorSelect, roomSelect);
+  };
+}
+
+async function populateExamFloors(building, floorSelect, roomSelect = null) {
+  if (!building) return;
+  const floors = await getExamFloors(building);
+  floorSelect.disabled = !floors.length;
+  if (!floors.length) return;
+  floorSelect.innerHTML = floors.map((f) => `<option value="${f}">${f}</option>`).join('');
+  if (roomSelect) {
+    await populateExamRooms(building, floors[0], roomSelect);
+    floorSelect.onchange = () => {
+      if (floorSelect.value) populateExamRooms(building, floorSelect.value, roomSelect);
+    };
+  }
+}
+
+async function populateExamRooms(building, floor, roomSelect) {
+  const rooms = await getExamRooms(building, floor);
+  roomSelect.disabled = !rooms.length;
+  roomSelect.innerHTML = rooms.map((r) => `<option value="${r}">${r}</option>`).join('');
+}
+
 // ===================== DOM =====================
 const mode1Btn = document.getElementById('mode1');
 const mode2Btn = document.getElementById('mode2');
+const mode3Btn = document.getElementById('mode3');
+const mode4Btn = document.getElementById('mode4');
 const controls = document.getElementById('controls');
 const output = document.getElementById('output');
+const allModeBtns = [mode1Btn, mode2Btn, mode3Btn, mode4Btn];
 
 const setActiveMode = (modeId) => {
-  mode1Btn.classList.toggle('active', modeId === 'mode1');
-  mode2Btn.classList.toggle('active', modeId === 'mode2');
+  allModeBtns.forEach((btn) => btn.classList.toggle('active', btn.id === modeId));
 };
 
 mode1Btn.addEventListener('click', () => {
@@ -59,6 +251,14 @@ mode1Btn.addEventListener('click', () => {
 mode2Btn.addEventListener('click', () => {
   setActiveMode('mode2');
   showMode2();
+});
+mode3Btn.addEventListener('click', () => {
+  setActiveMode('mode3');
+  showMode3();
+});
+mode4Btn.addEventListener('click', () => {
+  setActiveMode('mode4');
+  showMode4();
 });
 document.getElementById('week-all').addEventListener('click', () => setWeekFilter('all'));
 document
@@ -109,6 +309,7 @@ function refreshCurrentView() {
       renderCalendar(buildingSelect.value, floorSelect?.value || '', roomSelect.value);
     }
   }
+  // Modes 3 & 4 refresh via their own week-nav callbacks
 }
 
 async function loadGroupEndDates() {
@@ -624,6 +825,350 @@ async function renderCalendar(building, floor, room) {
   wrap.className = 'table-wrap';
   wrap.appendChild(table);
   output.appendChild(tbody.children.length ? wrap : buildEmptyState());
+}
+
+// ===================== Режим 3 — Екзамени: вільні =====================
+async function showMode3() {
+  controls.innerHTML = '';
+  output.innerHTML = '';
+  const form = document.createElement('form');
+
+  const buildingSelect = createSelect('Корпус');
+  const floorSelect = createSelect('Поверх', [], true);
+
+  const monday = getMonday(new Date());
+  let currentMonday = new Date(monday);
+
+  const daySelect = createSelect('День', []);
+
+  function populateDayOptions(mon) {
+    daySelect.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const d = addDays(mon, i);
+      const opt = document.createElement('option');
+      opt.value = isoDate(d);
+      opt.textContent = `${fullDayNames[fullDays[i]]} ${formatShortDate(d)}`;
+      daySelect.appendChild(opt);
+    }
+  }
+  populateDayOptions(currentMonday);
+
+  const weekNav = createWeekNav(currentMonday, (newMonday) => {
+    currentMonday = newMonday;
+    populateDayOptions(newMonday);
+    triggerExamFreeBusy();
+  });
+
+  const locationGroup = document.createElement('div');
+  locationGroup.className = 'field-group two-cols';
+  const locationLabel = document.createElement('p');
+  locationLabel.className = 'group-label';
+  locationLabel.textContent = 'Локація';
+  locationGroup.append(
+    locationLabel,
+    labelWrap('Корпус', buildingSelect),
+    labelWrap('Поверх', floorSelect),
+  );
+
+  const timeGroup = document.createElement('div');
+  timeGroup.className = 'field-group';
+  const timeLabel = document.createElement('p');
+  timeLabel.className = 'group-label';
+  timeLabel.textContent = 'Тиждень / День';
+  timeGroup.append(timeLabel, weekNav.element, labelWrap('День', daySelect));
+
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  const button = document.createElement('button');
+  button.textContent = 'Показати доступність';
+  button.className = 'primary';
+  const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
+  resetBtn.textContent = 'Скинути фільтри';
+  resetBtn.className = 'ghost';
+  actions.append(button, resetBtn);
+
+  form.append(locationGroup, timeGroup, actions);
+
+  async function triggerExamFreeBusy() {
+    const building = buildingSelect.value;
+    const floor = floorSelect.value;
+    const date = daySelect.value;
+    if (!building || !date) return;
+    showLoading();
+    try {
+      await renderExamFreeBusy(building, floor, date);
+    } catch {
+      showError();
+    }
+  }
+
+  resetBtn.addEventListener('click', () => {
+    populateExamBuildings(buildingSelect, floorSelect);
+    currentMonday = getMonday(new Date());
+    populateDayOptions(currentMonday);
+    output.innerHTML = '';
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await triggerExamFreeBusy();
+  });
+
+  controls.appendChild(form);
+  await populateExamBuildings(buildingSelect, floorSelect);
+  if (buildingSelect.options.length === 0) {
+    output.appendChild(buildEmptyState('Дані екзаменів не згенеровано.'));
+  }
+}
+
+async function renderExamFreeBusy(building, floor, selectedDate) {
+  const floors = floor ? [floor] : await getExamFloors(building);
+
+  const floorRoomPairs = (
+    await Promise.all(
+      floors.map(async (fl) => {
+        const rooms = await getExamRooms(building, fl);
+        const roomData = await Promise.all(rooms.map((r) => loadExamRoomData(building, fl, r)));
+        return rooms.map((room, i) => ({ fl, room, data: roomData[i] }));
+      }),
+    )
+  ).flat();
+
+  const allPairNums = Object.keys(pairTimes).map((n) => parseInt(n));
+
+  const table = document.createElement('table');
+  table.classList.add('availability-table');
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  ['Аудиторія', 'Пара', 'Статус', 'Інформація'].forEach((text) => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+
+  const fragment = document.createDocumentFragment();
+  for (const { room, data } of floorRoomPairs) {
+    const entries = data.filter((e) => e.Дата === selectedDate);
+    allPairNums.forEach((p, index) => {
+      const entry = entries.find((e) => e.Пара === p);
+      const row = document.createElement('tr');
+
+      if (index === 0) {
+        const roomCell = document.createElement('td');
+        roomCell.rowSpan = allPairNums.length;
+        roomCell.textContent = room;
+        row.appendChild(roomCell);
+      }
+
+      const statusClass = entry ? 'cell-busy' : 'cell-free';
+      const pairCell = document.createElement('td');
+      pairCell.className = statusClass;
+      pairCell.textContent = `${p} (${getPairTime(p)})`;
+
+      const statusCell = document.createElement('td');
+      statusCell.className = statusClass;
+      statusCell.textContent = entry ? 'Екзамен' : 'Вільно';
+
+      const infoCell = buildExamInfoCell(entry, statusClass);
+      row.append(pairCell, statusCell, infoCell);
+      fragment.appendChild(row);
+    });
+  }
+  tbody.appendChild(fragment);
+  table.appendChild(tbody);
+
+  output.innerHTML = '';
+
+  if (!tbody.children.length) {
+    output.appendChild(buildEmptyState('Немає даних про екзамени'));
+    return;
+  }
+
+  const dateObj = new Date(selectedDate + 'T00:00:00');
+  const dayName = dateObj.toLocaleDateString('uk-UA', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const floorLabel = floor ? ` · Поверх ${floor}` : '';
+  const meta = document.createElement('p');
+  meta.className = 'result-meta';
+  meta.textContent = `Корпус ${building}${floorLabel} · ${dayName}`;
+  output.appendChild(meta);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap';
+  wrap.appendChild(table);
+  output.appendChild(wrap);
+}
+
+function buildExamInfoCell(entry, statusClass) {
+  const cell = document.createElement('td');
+  cell.className = statusClass;
+  if (entry) {
+    const title = document.createElement('div');
+    title.className = 'cell-title';
+    title.textContent = entry.Предмет;
+    const meta1 = document.createElement('div');
+    meta1.className = 'cell-meta';
+    meta1.textContent = entry.Викладач || '—';
+    const meta2 = document.createElement('div');
+    meta2.className = 'cell-meta';
+    meta2.textContent = `${entry['Тип заняття'] || 'Екзамен'} · ${entry.Група}`;
+    cell.append(title, meta1, meta2);
+  } else {
+    const freeTitle = document.createElement('div');
+    freeTitle.className = 'cell-title free';
+    freeTitle.textContent = 'Вільно';
+    cell.appendChild(freeTitle);
+  }
+  return cell;
+}
+
+// ===================== Режим 4 — Екзамени: календар =====================
+async function showMode4() {
+  controls.innerHTML = '';
+  output.innerHTML = '';
+  const form = document.createElement('form');
+
+  const buildingSelect = createSelect('Корпус');
+  const floorSelect = createSelect('Поверх', [], true);
+  const roomSelect = createSelect('Аудиторія', [], true);
+
+  const monday = getMonday(new Date());
+  let currentMonday = new Date(monday);
+
+  const weekNav = createWeekNav(currentMonday, (newMonday) => {
+    currentMonday = newMonday;
+    triggerExamCalendar();
+  });
+
+  const locationGroup = document.createElement('div');
+  locationGroup.className = 'field-group';
+  const locationLabel = document.createElement('p');
+  locationLabel.className = 'group-label';
+  locationLabel.textContent = 'Локація';
+  locationGroup.append(
+    locationLabel,
+    labelWrap('Корпус', buildingSelect),
+    labelWrap('Поверх', floorSelect),
+    labelWrap('Аудиторія', roomSelect),
+  );
+
+  const timeGroup = document.createElement('div');
+  timeGroup.className = 'field-group';
+  const timeLabel = document.createElement('p');
+  timeLabel.className = 'group-label';
+  timeLabel.textContent = 'Тиждень';
+  timeGroup.append(timeLabel, weekNav.element);
+
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  const button = document.createElement('button');
+  button.textContent = 'Показати розклад';
+  button.className = 'primary';
+  const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
+  resetBtn.textContent = 'Скинути фільтри';
+  resetBtn.className = 'ghost';
+  actions.append(button, resetBtn);
+
+  form.append(locationGroup, timeGroup, actions);
+
+  async function triggerExamCalendar() {
+    showLoading();
+    try {
+      await renderExamCalendar(
+        buildingSelect.value,
+        floorSelect.value,
+        roomSelect.value,
+        weekNav.getMonday(),
+      );
+    } catch {
+      showError();
+    }
+  }
+
+  resetBtn.addEventListener('click', () => {
+    populateExamBuildings(buildingSelect, floorSelect, roomSelect);
+    currentMonday = getMonday(new Date());
+    output.innerHTML = '';
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await triggerExamCalendar();
+  });
+
+  controls.appendChild(form);
+  await populateExamBuildings(buildingSelect, floorSelect, roomSelect);
+  if (buildingSelect.options.length === 0) {
+    output.appendChild(buildEmptyState('Дані екзаменів не згенеровано.'));
+  }
+}
+
+async function renderExamCalendar(building, floor, room, monday) {
+  const data = await loadExamRoomData(building, floor, room);
+  const weekData = filterByWeekDates(data, monday);
+
+  const days = fullDays;
+  const dayHeaders = days.map((d, i) => {
+    const date = addDays(monday, i);
+    return `${d} ${formatShortDate(date)}`;
+  });
+
+  const table = document.createElement('table');
+  table.classList.add('availability-table');
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  ['Пара', ...dayHeaders].forEach((text) => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  const fragment = document.createDocumentFragment();
+
+  for (const p of Object.keys(pairTimes).map((n) => parseInt(n))) {
+    const row = document.createElement('tr');
+    const pairCell = document.createElement('td');
+    pairCell.textContent = `${p}`;
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'cell-meta';
+    timeSpan.textContent = getPairTime(p);
+    pairCell.appendChild(document.createElement('br'));
+    pairCell.appendChild(timeSpan);
+    row.appendChild(pairCell);
+
+    for (let i = 0; i < days.length; i++) {
+      const dateStr = isoDate(addDays(monday, i));
+      const item = weekData.find((e) => e.Дата === dateStr && e.Пара === p);
+      row.appendChild(buildExamInfoCell(item, item ? 'cell-busy' : 'cell-free'));
+    }
+    fragment.appendChild(row);
+  }
+  tbody.appendChild(fragment);
+  table.appendChild(tbody);
+
+  output.innerHTML = '';
+
+  const meta = document.createElement('p');
+  meta.className = 'result-meta';
+  meta.textContent = `Корпус ${building} · Поверх ${floor} · Аудиторія ${room} · Тиждень ${formatWeekRange(monday)}`;
+  output.appendChild(meta);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap';
+  wrap.appendChild(table);
+  output.appendChild(
+    tbody.children.length ? wrap : buildEmptyState('Немає екзаменів на цьому тижні'),
+  );
 }
 
 // ===================== Select =====================

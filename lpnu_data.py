@@ -210,6 +210,18 @@ def get_timetable(group: str, semester: str = "2", sem_duration: Optional[str] =
     raise RuntimeError("Failed to fetch timetable")
 
 
+def get_exam_timetable(group: str):
+    params = {"studygroup_abbrname": group.lower()}
+    try:
+        html = _fetch_html(BASE_STUDENTS + TIMETABLE_EXAMS_SUFFIX, params)
+    except TemporaryFetchError:
+        raise
+    entries = parse_timetable(html)
+    for entry in entries:
+        entry["Тип заняття"] = "Екзамен"
+    return entries
+
+
 def get_partial_timetable(group: str, semester_half: int, semester: str = "2"):
     sem_duration = _half_to_sem_duration(semester_half)
     durations = [sem_duration]
@@ -241,4 +253,5 @@ __all__ = [
     "get_institutes",
     "get_timetable",
     "get_partial_timetable",
+    "get_exam_timetable",
 ]

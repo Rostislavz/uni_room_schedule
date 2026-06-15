@@ -65,6 +65,12 @@ jobs:
       - name: Generate room occupancy
         run: python generate_room_status.py --force
 
+      - name: Download exam schedules
+        run: python batch_exam_downloader.py
+
+      - name: Generate exam room occupancy
+        run: python generate_exam_room_status.py --force
+
       - name: Build static data bundle
         run: python scripts/build_static_data.py
 
