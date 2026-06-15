@@ -2,11 +2,12 @@ exclude: |
   (?x)^(
       groups_cache/.*|    # Generated institute group caches
       data/.*|            # Generated static data assets
+      __pycache__/.*|     # Python bytecode cache
       \.git/.*|           # Git internals
   )$
 fail_fast: false
 default_language_version:
-  python: python3.11
+  python: python3
 
 repos:
   # General hooks
@@ -22,14 +23,18 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=500]
-      - id: check-ast           # Validates Python syntax
-      - id: debug-statements    # Catches leftover breakpoint()/pdb calls
+      - id: check-ast # Validates Python syntax
+      - id: check-docstring-first
+      - id: debug-statements # Catches leftover breakpoint()/pdb calls
       - id: detect-private-key
       - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: requirements-txt-fixer
 
   # Python — ruff covers linting + import sorting + pyupgrade in one pass
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.2
+    rev: v0.15.17
     hooks:
       - id: ruff
         args: [--fix]
@@ -42,5 +47,5 @@ repos:
     rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
-        types_or: [javascript, css, html]
+        types_or: [javascript, css, html, json, markdown, yaml]
         args: [--single-quote, --print-width=100]

@@ -116,9 +116,11 @@ html.is-embedded .page {
 
 .tabs {
   display: inline-flex;
+  flex-wrap: wrap;
   background: #e7edf6;
-  border-radius: 999px;
+  border-radius: 16px;
   padding: 4px;
+  gap: 2px;
 }
 
 .tab {
@@ -159,6 +161,21 @@ html.is-embedded .page {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .chip {
@@ -542,6 +559,44 @@ table tr:nth-child(even) td {
 .accordion-caret {
   font-size: 14px;
   color: var(--muted);
+}
+
+/* Week navigation */
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.week-nav__btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.week-nav__btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.week-nav__label {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  min-width: 140px;
+  text-align: center;
 }
 
 .empty-state {
