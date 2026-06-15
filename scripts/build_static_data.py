@@ -22,6 +22,8 @@ ROOM_SOURCE_DIR = ROOT / "аудиторії"
 DATA_DIR = ROOT / "data"
 FLOORS_DIR = DATA_DIR / "floors"
 INDEX_PATH = DATA_DIR / "index.json"
+GROUP_END_DATES_SRC = ROOT / "group_end_dates.json"
+GROUP_END_DATES_DST = DATA_DIR / "group_end_dates.json"
 
 
 def natural_sort_key(value: str):
@@ -133,6 +135,12 @@ def build() -> None:
         },
     }
     write_json(INDEX_PATH, index_payload)
+
+    if GROUP_END_DATES_SRC.exists():
+        shutil.copy2(GROUP_END_DATES_SRC, GROUP_END_DATES_DST)
+        print(
+            f"Copied {GROUP_END_DATES_SRC.name} → {GROUP_END_DATES_DST.relative_to(ROOT)}"
+        )
 
     print(f"Built {INDEX_PATH.relative_to(ROOT)}")
     print(f"Buildings: {index_payload['totals']['buildings']}")

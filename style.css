@@ -161,6 +161,21 @@ html.is-embedded .page {
   flex-wrap: wrap;
 }
 
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .chip {
   border: 1px solid var(--border);
   background: #f8fafc;

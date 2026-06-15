@@ -33,6 +33,8 @@ const floorDataCache = new Map(); // key → { promise, timestamp }
 const PAGE_SIZE = 30; // rooms shown per page in Mode 1
 
 let currentWeekFilter = 'all';
+let filterEndedGroups = false;
+let groupEndDatesPromise = null;
 const dataRoot = (document.querySelector('meta[name="app-data-root"]')?.content || 'data').replace(
   /\/+$/,
   '',
@@ -65,6 +67,11 @@ document
 document
   .getElementById('week-denominator')
   .addEventListener('click', () => setWeekFilter('denominator'));
+
+document.getElementById('filter-ended').addEventListener('change', (e) => {
+  filterEndedGroups = e.target.checked;
+  refreshCurrentView();
+});
 
 document.addEventListener('DOMContentLoaded', () => {
   const embedded = window.self !== window.top;
@@ -102,6 +109,35 @@ function refreshCurrentView() {
       renderCalendar(buildingSelect.value, floorSelect?.value || '', roomSelect.value);
     }
   }
+}
+
+async function loadGroupEndDates() {
+  if (!groupEndDatesPromise) {
+    groupEndDatesPromise = (async () => {
+      try {
+        const res = await fetch(`${dataRoot}/group_end_dates.json`, { cache: 'no-cache' });
+        if (!res.ok) return {};
+        const data = await res.json();
+        return data.group_end_dates || {};
+      } catch {
+        return {};
+      }
+    })();
+  }
+  return groupEndDatesPromise;
+}
+
+async function filterEndedEntries(entries) {
+  if (!filterEndedGroups) return entries;
+  const endDates = await loadGroupEndDates();
+  const today = new Date().toISOString().slice(0, 10);
+  return entries.filter((e) => {
+    const group = e.Група;
+    if (!group) return true;
+    const endDate = endDates[group];
+    if (!endDate) return true;
+    return today <= endDate;
+  });
 }
 
 function filterByWeek(entries) {
@@ -348,7 +384,9 @@ async function renderFreeBusy(building, floor, selectedDay, page = 0) {
 
   const fragment = document.createDocumentFragment();
   for (const { room, data } of pageItems) {
-    let entries = filterByWeek(data.filter((e) => e.День === selectedDay));
+    let entries = await filterEndedEntries(
+      filterByWeek(data.filter((e) => e.День === selectedDay)),
+    );
     allPairNums.forEach((p, index) => {
       const entry = entries.find((e) => e.Пара === p);
       const row = document.createElement('tr');
@@ -536,7 +574,7 @@ async function showMode2() {
 
 async function renderCalendar(building, floor, room) {
   const data = await loadRoomData(building, floor, room);
-  const filteredData = filterByWeek(data);
+  const filteredData = await filterEndedEntries(filterByWeek(data));
   const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
   const table = document.createElement('table');
