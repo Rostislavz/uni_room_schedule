@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="app-data-root" content="data" />
     <title>Статус аудиторій</title>
-    <link rel="stylesheet" href="style.css?v=3.0" />
+    <link rel="stylesheet" href="style.css?v=4.0" />
   </head>
   <body>
     <div class="page">
@@ -34,6 +34,8 @@
           <nav class="tabs">
             <button id="mode1" class="tab active">Вільні аудиторії</button>
             <button id="mode2" class="tab">Календар аудиторії</button>
+            <button id="mode3" class="tab">Екзамени: вільні</button>
+            <button id="mode4" class="tab">Екзамени: календар</button>
           </nav>
           <section id="week-selector" class="week-selector">
             <label>Тип тижня:</label>
@@ -48,6 +50,12 @@
                 Знаменник
               </button>
             </div>
+          </section>
+          <section class="week-selector">
+            <label class="checkbox-label" for="filter-ended">
+              <input type="checkbox" id="filter-ended" />
+              <span>Не показувати після закінчення семестру</span>
+            </label>
           </section>
         </div>
       </header>
@@ -103,7 +111,7 @@
       </main>
     </div>
 
-    <script src="script.js?v=3.0" defer></script>
+    <script src="script.js?v=4.0" defer></script>
     <noscript
       ><p style="text-align: center; padding: 2rem; color: #5f6c85">
         Для роботи застосунку необхідно увімкнути JavaScript.
