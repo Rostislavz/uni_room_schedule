@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       institute:
-        description: "Institute code or All"
+        description: 'Institute code or All'
         type: string
-        default: "All"
+        default: 'All'
       force_redownload:
-        description: "Force redownload all schedules"
+        description: 'Force redownload all schedules'
         type: boolean
         default: false
   schedule:
-    - cron: "15 4 * * *"
+    - cron: '15 4 * * *'
 
 permissions:
   contents: write
@@ -28,7 +28,7 @@ jobs:
     env:
       LPNU_INSTITUTE: ${{ inputs.institute || 'All' }}
       LPNU_FORCE_REDOWNLOAD: ${{ inputs.force_redownload && '1' || '0' }}
-      LPNU_PARTIAL_FALLBACK_TO_ALL: "1"
+      LPNU_PARTIAL_FALLBACK_TO_ALL: '1'
       GROUPS_FETCH_SUMMARY_PATH: .tmp/groups_fetch_summary.json
       BATCH_SUMMARY_PATH: .tmp/batch_summary.json
 
@@ -44,8 +44,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip"
+          python-version: '3.11'
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
