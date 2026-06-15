@@ -29,5 +29,7 @@ node_modules/
 
 # Generated data (kept out of main branch)
 schedules/
+schedules_exam/
 аудиторії/
+аудиторії_exam/
 data/
