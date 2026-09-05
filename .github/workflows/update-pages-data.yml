@@ -27,6 +27,8 @@ jobs:
     timeout-minutes: 60
     env:
       LPNU_INSTITUTE: ${{ inputs.institute || 'All' }}
+      # Current autumn semester; update to '2' for the spring timetable.
+      LPNU_SEMESTER: '1'
       LPNU_FORCE_REDOWNLOAD: ${{ inputs.force_redownload && '1' || '0' }}
       LPNU_PARTIAL_FALLBACK_TO_ALL: '1'
       GROUPS_FETCH_SUMMARY_PATH: .tmp/groups_fetch_summary.json

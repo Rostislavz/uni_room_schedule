@@ -6,6 +6,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 import json
 import logging
 import os
+import sys
 from typing import Any, Iterable, NamedTuple
 
 from lpnu_data import (
@@ -263,7 +264,7 @@ def _compute_total_stats(
     return stats
 
 
-def main():
+def main() -> int:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -310,7 +311,7 @@ def main():
                         ensure_ascii=False,
                         indent=2,
                     )
-            return
+            return 1
     else:
         logger.info("Groups found: %d", len(groups))
 
@@ -348,6 +349,7 @@ def main():
             half,
         )
 
+    totals = _compute_total_stats(primary_stats, partial_stats)
     if SUMMARY_PATH:
         payload = {
             "institute": institute,
@@ -355,11 +357,20 @@ def main():
             "groups_discovery_failed": False,
             "primary": primary_stats,
             "partial": partial_stats,
-            "totals": _compute_total_stats(primary_stats, partial_stats),
+            "totals": totals,
         }
         with open(SUMMARY_PATH, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
 
+    if totals["success"] == 0:
+        logger.error(
+            "No schedules available for semester %s (%d failed downloads)",
+            semester,
+            totals["failed"],
+        )
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
